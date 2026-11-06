@@ -1,0 +1,48 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {JSDOM,VirtualConsole} from 'jsdom';
+import vm from 'node:vm';
+test('supplied UI initializes, protects admin route, uses real public DTO and retains all required form bindings',async()=>{
+ const errors=[],console=new VirtualConsole();console.on('jsdomError',e=>errors.push(e));
+ const dom=new JSDOM(await readFile('index.html','utf8'),{url:'http://localhost:3000/#/admin',runScripts:'outside-only',virtualConsole:console});
+ const w=dom.window;w.structuredClone=structuredClone;w.scrollTo=()=>{};w.confirm=()=>true;w.prompt=()=>'';w.CSS={escape:v=>v};
+ w.fetch=async url=>{
+  const data=String(url).endsWith('public/books')?[{code:'DS001',title:'<img src=x onerror=alert(1)>',authors:'A',category:'Da liễu',cover_url:'',short_description:'Mô tả',total:2,available:1}]:String(url).endsWith('public/content')?{settings:{libraryName:'Thư viện',zaloOaId:''},links:[],sections:[]}:null;
+  return {ok:!!data,status:data?200:401,json:async()=>data?{data}:{error:{message:'Vui lòng đăng nhập.'}}};
+ };
+ vm.runInContext(await readFile('assets/js/app.js','utf8'),dom.getInternalVMContext());vm.runInContext(await readFile('assets/js/live.js','utf8'),dom.getInternalVMContext());
+ await w.liveInitialize();
+ assert.ok(w.document.getElementById('page-login').classList.contains('active'));
+ assert.equal(w.liveSession,null);
+ assert.ok(w.document.getElementById('publicBookGrid').textContent.includes('<img src=x onerror=alert(1)>'),w.document.getElementById('publicBookGrid').textContent+' / '+w.document.getElementById('toastContainer').textContent);
+ assert.equal(w.document.querySelector('#publicBookGrid img'),null);
+ w.location.hash = '#/kho-sach';
+ w.routeHash();
+ assert.ok(w.document.getElementById('page-catalog').classList.contains('active'));
+ assert.equal(w.document.querySelector('#publicBookGrid a').getAttribute('href'), '#/kho-sach/DS001');
+ w.location.hash = '#/kho-sach/DS001';
+ w.routeHash();
+ assert.ok(w.document.getElementById('page-book').classList.contains('active'));
+ assert.match(w.document.getElementById('publicBookDetail').textContent, /Mô tả/);
+ assert.ok(w.document.getElementById('detailBorrowBtn'));
+ assert.equal(w.document.querySelector('#publicBookDetail img'),null);
+ assert.equal(w.document.getElementById('loanCopySelect').multiple,true);
+ for(const id of ['loanWarnings','loanWarningAck','loanDepositConfirmed','returnWallet','returnDecisionBy','returnSettleNow','nbPublisher','nbYear','nbIsbn','nbPages','nbLanguage','nbLanguageGroup','nbPublishStatus','nbCoverUrl','nbShowOnWeb','importForm','importPreview','cfgLossRule','cfgUnknownPrice','pendingFinance'])assert.ok(w.document.getElementById(id),'Missing '+id);
+ assert.equal(w.document.getElementById('loginPassword').value,'');
+ assert.equal(errors.length,0,errors.map(e=>e.message).join('\n'));dom.window.close();
+});
+test('authenticated empty system renders every admin tab without sample records or runtime errors',async()=>{
+ const errors=[],console=new VirtualConsole();console.on('jsdomError',e=>errors.push(e));
+ const dom=new JSDOM(await readFile('index.html','utf8'),{url:'http://localhost:3000/#/admin',runScripts:'outside-only',virtualConsole:console});
+ const w=dom.window;w.structuredClone=structuredClone;w.scrollTo=()=>{};w.CSS={escape:v=>v};
+ const state={today:'2026-11-05',settings:{libraryName:'Thư viện',address:'',hotline:'',zaloOaId:'',termsOnPrint:''},policy:{company_term_months:12,walkin_term_months:3,walkin_deposit_vnd:500000,late_fee_vnd_per_day:5000,replacement_technical_fee_vnd:20000,out_of_print_multiplier:3}};
+ for(const n of ['book_titles','book_copies','readers','loans','loan_items','wallets','financial_transactions','cash_entries','deposit_entries','charges','charge_allocations','collection_contacts','print_documents','content_links','reminder_events','book_categories','audit_logs'])state[n]=[];
+ w.fetch=async url=>({ok:true,status:200,json:async()=>({data:String(url).endsWith('public/books')?[]:String(url).endsWith('public/content')?{settings:state.settings,links:[],sections:[]}:String(url).endsWith('auth/session')?{email:'admin@example.test'}:state})});
+ vm.runInContext(await readFile('assets/js/app.js','utf8'),dom.getInternalVMContext());vm.runInContext(await readFile('assets/js/live.js','utf8'),dom.getInternalVMContext());await w.liveInitialize();
+ assert.ok(w.document.getElementById('page-admin').classList.contains('active'));
+ for(const tab of ['dashboard','books','loans','readers','wallets','print','settings'])w.switchAdminTab(tab);
+ assert.equal(w.document.getElementById('operationError').hidden,true,w.document.getElementById('operationError').textContent);
+ assert.equal(errors.length,0,errors.map(e=>e.message).join('\n'));assert.ok(!w.document.getElementById('adminReadersTableBody').textContent.includes('Nguyễn Thị Thanh Hương'));
+ dom.window.close();
+});

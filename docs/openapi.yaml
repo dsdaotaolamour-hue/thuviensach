@@ -1,0 +1,2466 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Lamour Library API",
+    "version": "1.0.0",
+    "description": "Same-origin API. Browser never accesses Supabase tables. Mutations require exact Origin; financial writes require Idempotency-Key. Dates YYYY-MM-DD, money integer VND."
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "paths": {
+    "/public/books": {
+      "get": {
+        "summary": "Danh sách sách công khai, chỉ DTO đã lọc",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        }
+      }
+    },
+    "/public/content": {
+      "get": {
+        "summary": "Nội dung và link công khai",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        }
+      }
+    },
+    "/public/events": {
+      "post": {
+        "summary": "Đếm sự kiện tổng hợp, không nhận PII",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "event": {
+                    "enum": [
+                      "click_borrow_book_btn",
+                      "copy_book_info",
+                      "redirect_zalo_oa",
+                      "click_drive_folder"
+                    ]
+                  },
+                  "target": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "event"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Đăng nhập; cookie HttpOnly",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Thu hồi phiên; xóa cookie",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/session": {
+      "get": {
+        "summary": "Kiểm tra phiên và quyền admin",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        }
+      }
+    },
+    "/admin/state": {
+      "get": {
+        "summary": "Dữ liệu quản trị; chỉ admin, gồm bảng nghiệp vụ và snapshot",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        }
+      }
+    },
+    "/admin/book-titles": {
+      "post": {
+        "summary": "Tạo đầu sách và số cuốn ban đầu",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "author": {
+                    "type": "string"
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "publisher": {
+                    "type": "string"
+                  },
+                  "year": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "isbn": {
+                    "type": "string"
+                  },
+                  "language": {
+                    "type": "string"
+                  },
+                  "languageGroup": {
+                    "enum": [
+                      "VIETNAMESE",
+                      "FOREIGN",
+                      ""
+                    ]
+                  },
+                  "pages": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 1
+                  },
+                  "price": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "publishStatus": {
+                    "enum": [
+                      "IN_PRINT",
+                      "OUT_OF_PRINT",
+                      "UNKNOWN"
+                    ]
+                  },
+                  "coverUrl": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "copiesCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "shelf": {
+                    "type": "string"
+                  },
+                  "showOnWeb": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "title"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/book-titles/visibility": {
+      "post": {
+        "summary": "Đổi hiển thị web với optimistic version",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "visible": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "version",
+                  "visible"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/copies": {
+      "post": {
+        "summary": "Thêm cuốn; mã cấp trong transaction",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "titleId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "shelf": {
+                    "type": "string"
+                  },
+                  "condition": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "titleId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/copies/status": {
+      "post": {
+        "summary": "Đổi trạng thái kho; cấm cuốn đang mượn",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "status": {
+                    "enum": [
+                      "READY",
+                      "REPAIR",
+                      "DAMAGED",
+                      "LOST",
+                      "RETIRED"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "version",
+                  "status",
+                  "reason"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/readers": {
+      "post": {
+        "summary": "Tạo độc giả, chuẩn hóa SĐT unique",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "category": {
+                    "enum": [
+                      "COMPANY",
+                      "INTERNAL",
+                      "WALK_IN"
+                    ]
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "organization": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "phone",
+                  "category"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/loans/quote": {
+      "post": {
+        "summary": "Báo giá mượn; dueDate, deposit, overdue, policyVersion, quoteToken",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueFields"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/loans/issue": {
+      "post": {
+        "summary": "Phát hành phiếu nhiều cuốn, khóa tồn kho, cọc và audit atomic",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueFields"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/returns/quote": {
+      "post": {
+        "summary": "Báo giá trả theo snapshot phiên bản cũ",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReturnFields"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/returns": {
+      "post": {
+        "summary": "Nhận một cuốn, trả từng phần, tùy chọn quyết toán ngay",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReturnFields"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/settlements/quote": {
+      "post": {
+        "summary": "Báo giá nghĩa vụ/cọc còn chờ",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "itemId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "itemId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/settlements": {
+      "post": {
+        "summary": "Quyết toán cuốn đã nhận trước đó",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "itemId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "quoteHash": {
+                    "type": "string"
+                  },
+                  "walletId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "cashConfirmed": {
+                    "type": "boolean"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "itemId",
+                  "version",
+                  "quoteHash",
+                  "reason"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/replacements": {
+      "post": {
+        "summary": "Nhận sách mới; cuốn cũ vẫn LOST",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "itemId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "itemId",
+                  "reason"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/transfers": {
+      "post": {
+        "summary": "Hai vế chuyển ví cân bằng",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "to": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to",
+                  "amount",
+                  "reason"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/transactions/reverse": {
+      "post": {
+        "summary": "Đảo chuyển ví bằng bút toán mới; không xóa dòng gốc",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "reason"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/wallets": {
+      "post": {
+        "summary": "Thêm ví",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "enum": [
+                      "MOMO",
+                      "BANK",
+                      "CASH",
+                      "OTHER"
+                    ]
+                  },
+                  "holder": {
+                    "type": "string"
+                  },
+                  "account": {
+                    "type": "string"
+                  },
+                  "bank": {
+                    "type": "string"
+                  },
+                  "qrUrl": {
+                    "type": "string"
+                  },
+                  "openingBalance": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "code",
+                  "name",
+                  "type"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/contacts": {
+      "post": {
+        "summary": "Ghi liên hệ thu hồi thủ công",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "loanId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "channel": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "result": {
+                    "type": "string"
+                  },
+                  "nextDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date"
+                  }
+                },
+                "required": [
+                  "loanId",
+                  "channel",
+                  "content",
+                  "result"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/reminders": {
+      "get": {
+        "summary": "Sinh idempotent và đọc các mốc nhắc hạn",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        }
+      }
+    },
+    "/admin/reminders/acknowledge": {
+      "post": {
+        "summary": "Xác nhận đã xem",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/settings": {
+      "post": {
+        "summary": "Tạo phiên bản chính sách; không sửa phiếu cũ",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "libraryName": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "hotline": {
+                    "type": "string"
+                  },
+                  "zaloOaId": {
+                    "type": "string"
+                  },
+                  "lamourLoanMonths": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "guestLoanMonths": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "guestDepositAmount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "lateFeePerDay": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "techFeeLostBook": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "outOfPrintMultiplier": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "lossLateFeeRule": {
+                    "enum": [
+                      "",
+                      "CONFIRMATION_DATE",
+                      "RESOLUTION_DATE"
+                    ]
+                  },
+                  "unknownPricePriorityRule": {
+                    "enum": [
+                      "",
+                      "REPLACE_FIRST",
+                      "PAGE_RATE_FIRST"
+                    ]
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/content": {
+      "post": {
+        "summary": "Nội dung hero của ba trang",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "page": {
+                    "enum": [
+                      "home",
+                      "isov",
+                      "data"
+                    ]
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "page",
+                  "title",
+                  "description"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/content-links": {
+      "post": {
+        "summary": "Cập nhật link thật/QR",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "qrUrl": {
+                    "type": "string"
+                  },
+                  "year": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "key",
+                  "label",
+                  "url"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/print-documents": {
+      "post": {
+        "summary": "Phát hành snapshot quyết toán bất biến",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "loanId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "loanId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/book-export": {
+      "get": {
+        "summary": "Tải .xlsx; ?template=1 để lấy mẫu",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        }
+      }
+    },
+    "/admin/book-imports/validate": {
+      "post": {
+        "summary": "Multipart file .xlsx và mode CREATE/UPDATE; trả diff/lỗi theo dòng",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "mode"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "mode": {
+                    "enum": [
+                      "CREATE",
+                      "UPDATE"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/book-imports/commit": {
+      "post": {
+        "summary": "Commit job đã validate trong transaction",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jobId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "jobId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/backups/export": {
+      "post": {
+        "summary": "Backup JSON có manifest/checksum; xác nhận lại password",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/account": {
+      "patch": {
+        "summary": "Đổi password rồi thu hồi toàn bộ phiên",
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công. JSON {data:...}; export trả file."
+          },
+          "400": {
+            "description": "Request không hợp lệ"
+          },
+          "401": {
+            "description": "Chưa xác thực/hết phiên"
+          },
+          "403": {
+            "description": "Sai Origin hoặc không có quyền"
+          },
+          "409": {
+            "description": "Version/tồn kho/idempotency conflict"
+          },
+          "422": {
+            "description": "Vi phạm nghiệp vụ"
+          },
+          "429": {
+            "description": "Thử lại sau"
+          },
+          "500": {
+            "description": "Lỗi máy chủ đã che thông tin"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "currentPassword": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 12
+                  }
+                },
+                "required": [
+                  "currentPassword",
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "cookieSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "lamour_session"
+      }
+    },
+    "schemas": {
+      "IssueFields": {
+        "type": "object",
+        "required": [
+          "readerId",
+          "copyIds",
+          "borrowDate"
+        ],
+        "properties": {
+          "readerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "copyIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "minItems": 1,
+            "maxItems": 100,
+            "uniqueItems": true
+          },
+          "borrowDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "conditionNote": {
+            "type": "string"
+          },
+          "walletId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "depositConfirmed": {
+            "type": "boolean"
+          },
+          "warningAcknowledged": {
+            "type": "boolean"
+          },
+          "quoteToken": {
+            "type": "string"
+          }
+        }
+      },
+      "ReturnFields": {
+        "type": "object",
+        "required": [
+          "itemId",
+          "actualDate",
+          "outcome"
+        ],
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actualDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "outcome": {
+            "enum": [
+              "GOOD",
+              "MINOR_DAMAGE",
+              "MAJOR_DAMAGE",
+              "LOST"
+            ]
+          },
+          "damageAmount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "conditionIn": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "decisionBy": {
+            "type": "string"
+          },
+          "walletId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cashConfirmed": {
+            "type": "boolean"
+          },
+          "replacementReceived": {
+            "type": "boolean"
+          },
+          "settleNow": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "quoteHash": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

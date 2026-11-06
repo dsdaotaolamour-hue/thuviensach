@@ -1,0 +1,949 @@
+{
+  "sha256": "849ff30857bd1ec5a210549475f8c4e0269fcd047689e36787bca47c0b2bad58",
+  "sheets": [
+    {
+      "name": "TỔNG QUAN",
+      "rows": 24,
+      "headers": [
+        "TỔNG QUAN HỆ THỐNG"
+      ],
+      "fields": [
+        {
+          "column": 1,
+          "header": "TỔNG QUAN HỆ THỐNG",
+          "formula": false
+        }
+      ]
+    },
+    {
+      "name": "ĐẦU SÁCH",
+      "rows": 500,
+      "headers": [
+        "STT",
+        "MÃ ĐẦU SÁCH",
+        "TÊN ĐẦU SÁCH",
+        "TÁC GIẢ",
+        "THỂ LOẠI",
+        "NHÀ XUẤT BẢN",
+        "NGÔN NGỮ",
+        "NGÀY NHẬP",
+        "LINK ẢNH BÌA",
+        "MÔ TẢ SÁCH",
+        "NĂM XUẤT BẢN",
+        "ISBN",
+        "GIÁ BÌA (đ)",
+        "HIỂN THỊ WEB",
+        "TỔNG SỐ CUỐN",
+        "CÓ SẴN",
+        "ĐANG MƯỢN",
+        "ĐANG SỬA"
+      ],
+      "fields": [
+        {
+          "column": 1,
+          "header": "STT",
+          "formula": true
+        },
+        {
+          "column": 2,
+          "header": "MÃ ĐẦU SÁCH",
+          "formula": false
+        },
+        {
+          "column": 3,
+          "header": "TÊN ĐẦU SÁCH",
+          "formula": false
+        },
+        {
+          "column": 4,
+          "header": "TÁC GIẢ",
+          "formula": false
+        },
+        {
+          "column": 5,
+          "header": "THỂ LOẠI",
+          "formula": false
+        },
+        {
+          "column": 6,
+          "header": "NHÀ XUẤT BẢN",
+          "formula": false
+        },
+        {
+          "column": 7,
+          "header": "NGÔN NGỮ",
+          "formula": false
+        },
+        {
+          "column": 8,
+          "header": "NGÀY NHẬP",
+          "formula": false
+        },
+        {
+          "column": 9,
+          "header": "LINK ẢNH BÌA",
+          "formula": false
+        },
+        {
+          "column": 10,
+          "header": "MÔ TẢ SÁCH",
+          "formula": false
+        },
+        {
+          "column": 11,
+          "header": "NĂM XUẤT BẢN",
+          "formula": false
+        },
+        {
+          "column": 12,
+          "header": "ISBN",
+          "formula": false
+        },
+        {
+          "column": 13,
+          "header": "GIÁ BÌA (đ)",
+          "formula": false
+        },
+        {
+          "column": 14,
+          "header": "HIỂN THỊ WEB",
+          "formula": false
+        },
+        {
+          "column": 15,
+          "header": "TỔNG SỐ CUỐN",
+          "formula": true
+        },
+        {
+          "column": 16,
+          "header": "CÓ SẴN",
+          "formula": true
+        },
+        {
+          "column": 17,
+          "header": "ĐANG MƯỢN",
+          "formula": true
+        },
+        {
+          "column": 18,
+          "header": "ĐANG SỬA",
+          "formula": true
+        }
+      ]
+    },
+    {
+      "name": "SÁCH",
+      "rows": 1500,
+      "headers": [
+        "STT",
+        "MÃ SÁCH",
+        "TÌNH TRẠNG",
+        "LOẠI",
+        "TRẠNG THÁI",
+        "VỊ TRÍ KỆ",
+        "NGÀY NHẬP",
+        "GHI CHÚ",
+        "MÃ ĐẦU SÁCH",
+        "TÊN ĐẦU SÁCH"
+      ],
+      "fields": [
+        {
+          "column": 1,
+          "header": "STT",
+          "formula": true
+        },
+        {
+          "column": 2,
+          "header": "MÃ SÁCH",
+          "formula": false
+        },
+        {
+          "column": 3,
+          "header": "TÌNH TRẠNG",
+          "formula": false
+        },
+        {
+          "column": 4,
+          "header": "LOẠI",
+          "formula": false
+        },
+        {
+          "column": 5,
+          "header": "TRẠNG THÁI",
+          "formula": false
+        },
+        {
+          "column": 6,
+          "header": "VỊ TRÍ KỆ",
+          "formula": false
+        },
+        {
+          "column": 7,
+          "header": "NGÀY NHẬP",
+          "formula": false
+        },
+        {
+          "column": 8,
+          "header": "GHI CHÚ",
+          "formula": false
+        },
+        {
+          "column": 9,
+          "header": "MÃ ĐẦU SÁCH",
+          "formula": true
+        },
+        {
+          "column": 10,
+          "header": "TÊN ĐẦU SÁCH",
+          "formula": true
+        }
+      ]
+    },
+    {
+      "name": "ĐỌC GIẢ",
+      "rows": 500,
+      "headers": [
+        "STT",
+        "MÃ ĐỌC GIẢ",
+        "HỌ VÀ TÊN ĐỌC GIẢ",
+        "SỐ ĐIỆN THOẠI",
+        "SỐ CĂN CƯỚC CÔNG DÂN",
+        "LOẠI KHÁCH",
+        "TRẠNG THÁI TÀI KHOẢN",
+        "EMAIL",
+        "ĐỊA CHỈ",
+        "NGÀY ĐĂNG KÝ",
+        "GHI CHÚ",
+        "SÁCH ĐANG MƯỢN",
+        "CỌC ĐANG GIỮ (đ)"
+      ],
+      "fields": [
+        {
+          "column": 1,
+          "header": "STT",
+          "formula": true
+        },
+        {
+          "column": 2,
+          "header": "MÃ ĐỌC GIẢ",
+          "formula": false
+        },
+        {
+          "column": 3,
+          "header": "HỌ VÀ TÊN ĐỌC GIẢ",
+          "formula": false
+        },
+        {
+          "column": 4,
+          "header": "SỐ ĐIỆN THOẠI",
+          "formula": false
+        },
+        {
+          "column": 5,
+          "header": "SỐ CĂN CƯỚC CÔNG DÂN",
+          "formula": false
+        },
+        {
+          "column": 6,
+          "header": "LOẠI KHÁCH",
+          "formula": false
+        },
+        {
+          "column": 7,
+          "header": "TRẠNG THÁI TÀI KHOẢN",
+          "formula": false
+        },
+        {
+          "column": 8,
+          "header": "EMAIL",
+          "formula": false
+        },
+        {
+          "column": 9,
+          "header": "ĐỊA CHỈ",
+          "formula": false
+        },
+        {
+          "column": 10,
+          "header": "NGÀY ĐĂNG KÝ",
+          "formula": false
+        },
+        {
+          "column": 11,
+          "header": "GHI CHÚ",
+          "formula": false
+        },
+        {
+          "column": 12,
+          "header": "SÁCH ĐANG MƯỢN",
+          "formula": true
+        },
+        {
+          "column": 13,
+          "header": "CỌC ĐANG GIỮ (đ)",
+          "formula": true
+        }
+      ]
+    },
+    {
+      "name": "PHIẾU MƯỢN",
+      "rows": 800,
+      "headers": [
+        "STT",
+        "MÃ PHIẾU",
+        "MÃ ĐỌC GIẢ",
+        "TÊN ĐỌC GIẢ",
+        "NGÀY MƯỢN",
+        "HẠN TRẢ",
+        "HÌNH THỨC NHẬN",
+        "SỐ CUỐN",
+        "CHƯA TRẢ",
+        "CỌC PHẢI THU (đ)",
+        "CỌC ĐÃ THU (đ)",
+        "CỌC CÒN GIỮ (đ)",
+        "VÍ NHẬN CỌC",
+        "TRẠNG THÁI PHIẾU",
+        "NGƯỜI LẬP PHIẾU",
+        "GHI CHÚ"
+      ],
+      "fields": [
+        {
+          "column": 1,
+          "header": "STT",
+          "formula": true
+        },
+        {
+          "column": 2,
+          "header": "MÃ PHIẾU",
+          "formula": false
+        },
+        {
+          "column": 3,
+          "header": "MÃ ĐỌC GIẢ",
+          "formula": false
+        },
+        {
+          "column": 4,
+          "header": "TÊN ĐỌC GIẢ",
+          "formula": true
+        },
+        {
+          "column": 5,
+          "header": "NGÀY MƯỢN",
+          "formula": false
+        },
+        {
+          "column": 6,
+          "header": "HẠN TRẢ",
+          "formula": true
+        },
+        {
+          "column": 7,
+          "header": "HÌNH THỨC NHẬN",
+          "formula": false
+        },
+        {
+          "column": 8,
+          "header": "SỐ CUỐN",
+          "formula": true
+        },
+        {
+          "column": 9,
+          "header": "CHƯA TRẢ",
+          "formula": true
+        },
+        {
+          "column": 10,
+          "header": "CỌC PHẢI THU (đ)",
+          "formula": true
+        },
+        {
+          "column": 11,
+          "header": "CỌC ĐÃ THU (đ)",
+          "formula": true
+        },
+        {
+          "column": 12,
+          "header": "CỌC CÒN GIỮ (đ)",
+          "formula": true
+        },
+        {
+          "column": 13,
+          "header": "VÍ NHẬN CỌC",
+          "formula": false
+        },
+        {
+          "column": 14,
+          "header": "TRẠNG THÁI PHIẾU",
+          "formula": true
+        },
+        {
+          "column": 15,
+          "header": "NGƯỜI LẬP PHIẾU",
+          "formula": false
+        },
+        {
+          "column": 16,
+          "header": "GHI CHÚ",
+          "formula": false
+        }
+      ]
+    },
+    {
+      "name": "CHI TIẾT PHIẾU",
+      "rows": 1500,
+      "headers": [
+        "STT",
+        "MÃ PHIẾU",
+        "MÃ SÁCH",
+        "TÊN ĐẦU SÁCH",
+        "GIÁ BÌA (đ)",
+        "CỌC DỰ KIẾN (đ)",
+        "MÃ ĐỌC GIẢ",
+        "NGÀY MƯỢN",
+        "HẠN TRẢ",
+        "NGÀY TRẢ THỰC TẾ",
+        "TÌNH TRẠNG KHI MƯỢN",
+        "KẾT QUẢ KHI TRẢ",
+        "SỐ NGÀY TRỄ",
+        "PHẠT TRỄ (đ)",
+        "PHẠT HƯ / MẤT (đ)",
+        "TỔNG PHẠT (đ)",
+        "GHI CHÚ",
+        "THỨ TỰ (phụ)",
+        "KHÓA (phụ)",
+        null,
+        "Ghi chú: dòng tô đỏ = sách quá hạn chưa trả. Phạt trễ là tạm tính tới hôm nay nếu chưa trả. Cột xám là công thức, không nhập."
+      ],
+      "fields": [
+        {
+          "column": 1,
+          "header": "STT",
+          "formula": true
+        },
+        {
+          "column": 2,
+          "header": "MÃ PHIẾU",
+          "formula": false
+        },
+        {
+          "column": 3,
+          "header": "MÃ SÁCH",
+          "formula": false
+        },
+        {
+          "column": 4,
+          "header": "TÊN ĐẦU SÁCH",
+          "formula": true
+        },
+        {
+          "column": 5,
+          "header": "GIÁ BÌA (đ)",
+          "formula": true
+        },
+        {
+          "column": 6,
+          "header": "CỌC DỰ KIẾN (đ)",
+          "formula": true
+        },
+        {
+          "column": 7,
+          "header": "MÃ ĐỌC GIẢ",
+          "formula": true
+        },
+        {
+          "column": 8,
+          "header": "NGÀY MƯỢN",
+          "formula": true
+        },
+        {
+          "column": 9,
+          "header": "HẠN TRẢ",
+          "formula": true
+        },
+        {
+          "column": 10,
+          "header": "NGÀY TRẢ THỰC TẾ",
+          "formula": false
+        },
+        {
+          "column": 11,
+          "header": "TÌNH TRẠNG KHI MƯỢN",
+          "formula": false
+        },
+        {
+          "column": 12,
+          "header": "KẾT QUẢ KHI TRẢ",
+          "formula": false
+        },
+        {
+          "column": 13,
+          "header": "SỐ NGÀY TRỄ",
+          "formula": true
+        },
+        {
+          "column": 14,
+          "header": "PHẠT TRỄ (đ)",
+          "formula": true
+        },
+        {
+          "column": 15,
+          "header": "PHẠT HƯ / MẤT (đ)",
+          "formula": true
+        },
+        {
+          "column": 16,
+          "header": "TỔNG PHẠT (đ)",
+          "formula": true
+        },
+        {
+          "column": 17,
+          "header": "GHI CHÚ",
+          "formula": false
+        },
+        {
+          "column": 18,
+          "header": "THỨ TỰ (phụ)",
+          "formula": true
+        },
+        {
+          "column": 19,
+          "header": "KHÓA (phụ)",
+          "formula": true
+        },
+        null,
+        {
+          "column": 21,
+          "header": "Ghi chú: dòng tô đỏ = sách quá hạn chưa trả. Phạt trễ là tạm tính tới hôm nay nếu chưa trả. Cột xám là công thức, không nhập.",
+          "formula": false
+        }
+      ]
+    },
+    {
+      "name": "HOẠT ĐỘNG",
+      "rows": 1500,
+      "headers": [
+        "STT",
+        "MÃ GIAO DỊCH",
+        "NGÀY",
+        "THÁNG",
+        "NĂM",
+        "MÃ ĐỌC GIẢ",
+        "MÃ PHIẾU MƯỢN",
+        "LOẠI HOẠT ĐỘNG",
+        "SỐ TIỀN",
+        "HÌNH THỨC",
+        "NGƯỜI XỬ LÝ",
+        "GHI CHÚ",
+        "MÃ THAM CHIẾU CK",
+        "ẢNH HƯỞNG QUỸ CỌC",
+        "TIỀN VÀO/RA VÍ",
+        "NGÀY ĐẦY ĐỦ"
+      ],
+      "fields": [
+        {
+          "column": 1,
+          "header": "STT",
+          "formula": true
+        },
+        {
+          "column": 2,
+          "header": "MÃ GIAO DỊCH",
+          "formula": false
+        },
+        {
+          "column": 3,
+          "header": "NGÀY",
+          "formula": false
+        },
+        {
+          "column": 4,
+          "header": "THÁNG",
+          "formula": false
+        },
+        {
+          "column": 5,
+          "header": "NĂM",
+          "formula": false
+        },
+        {
+          "column": 6,
+          "header": "MÃ ĐỌC GIẢ",
+          "formula": false
+        },
+        {
+          "column": 7,
+          "header": "MÃ PHIẾU MƯỢN",
+          "formula": false
+        },
+        {
+          "column": 8,
+          "header": "LOẠI HOẠT ĐỘNG",
+          "formula": false
+        },
+        {
+          "column": 9,
+          "header": "SỐ TIỀN",
+          "formula": false
+        },
+        {
+          "column": 10,
+          "header": "HÌNH THỨC",
+          "formula": false
+        },
+        {
+          "column": 11,
+          "header": "NGƯỜI XỬ LÝ",
+          "formula": false
+        },
+        {
+          "column": 12,
+          "header": "GHI CHÚ",
+          "formula": false
+        },
+        {
+          "column": 13,
+          "header": "MÃ THAM CHIẾU CK",
+          "formula": false
+        },
+        {
+          "column": 14,
+          "header": "ẢNH HƯỞNG QUỸ CỌC",
+          "formula": true
+        },
+        {
+          "column": 15,
+          "header": "TIỀN VÀO/RA VÍ",
+          "formula": true
+        },
+        {
+          "column": 16,
+          "header": "NGÀY ĐẦY ĐỦ",
+          "formula": true
+        }
+      ]
+    },
+    {
+      "name": "VÍ THANH TOÁN",
+      "rows": 30,
+      "headers": [
+        "STT",
+        "MÃ VÍ",
+        "TÊN HIỂN THỊ",
+        "LOẠI",
+        "CHỦ TÀI KHOẢN",
+        "SỐ TÀI KHOẢN / SĐT",
+        "NGÂN HÀNG",
+        "LINK ẢNH QR",
+        "TRẠNG THÁI",
+        "SỐ DƯ ĐẦU KỲ (đ)",
+        "SỐ DƯ HIỆN TẠI (đ)",
+        "CỌC ĐANG GIỮ TẠI ĐÂY (đ)",
+        "GHI CHÚ",
+        null,
+        "Thêm ví mới: gõ vào dòng trống tiếp theo (tên hiển thị phải khác nhau). Cột \"Tên hiển thị\" chính là danh sách chọn ở HOẠT ĐỘNG và PHIẾU MƯỢN. Không xóa ví đã có giao dịch, hãy đổi trạng thái sang \"Ngưng\"."
+      ],
+      "fields": [
+        {
+          "column": 1,
+          "header": "STT",
+          "formula": true
+        },
+        {
+          "column": 2,
+          "header": "MÃ VÍ",
+          "formula": false
+        },
+        {
+          "column": 3,
+          "header": "TÊN HIỂN THỊ",
+          "formula": false
+        },
+        {
+          "column": 4,
+          "header": "LOẠI",
+          "formula": false
+        },
+        {
+          "column": 5,
+          "header": "CHỦ TÀI KHOẢN",
+          "formula": false
+        },
+        {
+          "column": 6,
+          "header": "SỐ TÀI KHOẢN / SĐT",
+          "formula": false
+        },
+        {
+          "column": 7,
+          "header": "NGÂN HÀNG",
+          "formula": false
+        },
+        {
+          "column": 8,
+          "header": "LINK ẢNH QR",
+          "formula": false
+        },
+        {
+          "column": 9,
+          "header": "TRẠNG THÁI",
+          "formula": false
+        },
+        {
+          "column": 10,
+          "header": "SỐ DƯ ĐẦU KỲ (đ)",
+          "formula": false
+        },
+        {
+          "column": 11,
+          "header": "SỐ DƯ HIỆN TẠI (đ)",
+          "formula": true
+        },
+        {
+          "column": 12,
+          "header": "CỌC ĐANG GIỮ TẠI ĐÂY (đ)",
+          "formula": true
+        },
+        {
+          "column": 13,
+          "header": "GHI CHÚ",
+          "formula": false
+        },
+        null,
+        {
+          "column": 15,
+          "header": "Thêm ví mới: gõ vào dòng trống tiếp theo (tên hiển thị phải khác nhau). Cột \"Tên hiển thị\" chính là danh sách chọn ở HOẠT ĐỘNG và PHIẾU MƯỢN. Không xóa ví đã có giao dịch, hãy đổi trạng thái sang \"Ngưng\".",
+          "formula": false
+        }
+      ]
+    },
+    {
+      "name": "MẪU PHIẾU IN",
+      "rows": 37,
+      "headers": [],
+      "fields": []
+    },
+    {
+      "name": "CÀI ĐẶT",
+      "rows": 17,
+      "headers": [
+        "THIẾT LẬP",
+        "GIÁ TRỊ",
+        "GHI CHÚ"
+      ],
+      "fields": [
+        {
+          "column": 1,
+          "header": "THIẾT LẬP",
+          "formula": false
+        },
+        {
+          "column": 2,
+          "header": "GIÁ TRỊ",
+          "formula": false
+        },
+        {
+          "column": 3,
+          "header": "GHI CHÚ",
+          "formula": false
+        }
+      ]
+    },
+    {
+      "name": "DANH MỤC",
+      "rows": 11,
+      "headers": [
+        "TÌNH TRẠNG SÁCH",
+        "LOẠI SÁCH",
+        "TRẠNG THÁI SÁCH",
+        "LOẠI KHÁCH",
+        "TRẠNG THÁI TÀI KHOẢN",
+        "LOẠI HOẠT ĐỘNG",
+        "HÌNH THỨC NHẬN",
+        "KẾT QUẢ KHI TRẢ",
+        "THỂ LOẠI",
+        "NGÔN NGỮ",
+        "HIỂN THỊ WEB",
+        "TRẠNG THÁI VÍ",
+        "LOẠI VÍ",
+        "LOẠI PHIẾU IN",
+        null,
+        "Cách dùng: muốn thêm lựa chọn mới (thể loại, ngôn ngữ...) chỉ cần gõ tiếp xuống dưới cột tương ứng (tối đa tới dòng 40). Đừng đổi tên các giá trị đã có sẵn vì công thức đang dựa vào chúng."
+      ],
+      "fields": [
+        {
+          "column": 1,
+          "header": "TÌNH TRẠNG SÁCH",
+          "formula": false
+        },
+        {
+          "column": 2,
+          "header": "LOẠI SÁCH",
+          "formula": false
+        },
+        {
+          "column": 3,
+          "header": "TRẠNG THÁI SÁCH",
+          "formula": false
+        },
+        {
+          "column": 4,
+          "header": "LOẠI KHÁCH",
+          "formula": false
+        },
+        {
+          "column": 5,
+          "header": "TRẠNG THÁI TÀI KHOẢN",
+          "formula": false
+        },
+        {
+          "column": 6,
+          "header": "LOẠI HOẠT ĐỘNG",
+          "formula": false
+        },
+        {
+          "column": 7,
+          "header": "HÌNH THỨC NHẬN",
+          "formula": false
+        },
+        {
+          "column": 8,
+          "header": "KẾT QUẢ KHI TRẢ",
+          "formula": false
+        },
+        {
+          "column": 9,
+          "header": "THỂ LOẠI",
+          "formula": false
+        },
+        {
+          "column": 10,
+          "header": "NGÔN NGỮ",
+          "formula": false
+        },
+        {
+          "column": 11,
+          "header": "HIỂN THỊ WEB",
+          "formula": false
+        },
+        {
+          "column": 12,
+          "header": "TRẠNG THÁI VÍ",
+          "formula": false
+        },
+        {
+          "column": 13,
+          "header": "LOẠI VÍ",
+          "formula": false
+        },
+        {
+          "column": 14,
+          "header": "LOẠI PHIẾU IN",
+          "formula": false
+        },
+        null,
+        {
+          "column": 16,
+          "header": "Cách dùng: muốn thêm lựa chọn mới (thể loại, ngôn ngữ...) chỉ cần gõ tiếp xuống dưới cột tương ứng (tối đa tới dòng 40). Đừng đổi tên các giá trị đã có sẵn vì công thức đang dựa vào chúng.",
+          "formula": false
+        }
+      ]
+    },
+    {
+      "name": "NHẬT KÝ",
+      "rows": 2000,
+      "headers": [
+        "STT",
+        "THỜI GIAN",
+        "NGƯỜI THAO TÁC",
+        "HÀNH ĐỘNG",
+        "BẢNG / MỤC",
+        "MÃ BẢN GHI",
+        "GIÁ TRỊ CŨ",
+        "GIÁ TRỊ MỚI",
+        "GHI CHÚ / LÝ DO",
+        "ĐỊA CHỈ IP",
+        null,
+        "Website sẽ tự ghi vào đây (đăng nhập, đổi mật khẩu, sửa/xóa dữ liệu, thu/hoàn cọc, đổi trạng thái sách...). Chỉ thêm dòng, không sửa không xóa. Dùng Excel thủ công thì ghi tay các việc quan trọng (tiền, mất sách)."
+      ],
+      "fields": [
+        {
+          "column": 1,
+          "header": "STT",
+          "formula": true
+        },
+        {
+          "column": 2,
+          "header": "THỜI GIAN",
+          "formula": false
+        },
+        {
+          "column": 3,
+          "header": "NGƯỜI THAO TÁC",
+          "formula": false
+        },
+        {
+          "column": 4,
+          "header": "HÀNH ĐỘNG",
+          "formula": false
+        },
+        {
+          "column": 5,
+          "header": "BẢNG / MỤC",
+          "formula": false
+        },
+        {
+          "column": 6,
+          "header": "MÃ BẢN GHI",
+          "formula": false
+        },
+        {
+          "column": 7,
+          "header": "GIÁ TRỊ CŨ",
+          "formula": false
+        },
+        {
+          "column": 8,
+          "header": "GIÁ TRỊ MỚI",
+          "formula": false
+        },
+        {
+          "column": 9,
+          "header": "GHI CHÚ / LÝ DO",
+          "formula": false
+        },
+        {
+          "column": 10,
+          "header": "ĐỊA CHỈ IP",
+          "formula": false
+        },
+        null,
+        {
+          "column": 12,
+          "header": "Website sẽ tự ghi vào đây (đăng nhập, đổi mật khẩu, sửa/xóa dữ liệu, thu/hoàn cọc, đổi trạng thái sách...). Chỉ thêm dòng, không sửa không xóa. Dùng Excel thủ công thì ghi tay các việc quan trọng (tiền, mất sách).",
+          "formula": false
+        }
+      ]
+    },
+    {
+      "name": "HƯỚNG DẪN",
+      "rows": 27,
+      "headers": [
+        "HƯỚNG DẪN SỬ DỤNG FILE",
+        "HƯỚNG DẪN SỬ DỤNG FILE"
+      ],
+      "fields": [
+        {
+          "column": 1,
+          "header": "HƯỚNG DẪN SỬ DỤNG FILE",
+          "formula": false
+        },
+        {
+          "column": 2,
+          "header": "HƯỚNG DẪN SỬ DỤNG FILE",
+          "formula": false
+        }
+      ]
+    }
+  ]
+}

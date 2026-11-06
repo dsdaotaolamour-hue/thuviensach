@@ -1,0 +1,29 @@
+{
+  "name": "lamour-spa-library",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "node --test tests/*.test.mjs",
+    "test:ui": "node --test tests/ui.test.mjs",
+    "inspect:excel": "node scripts/inspect-excel.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "db:migrate": "node scripts/migrate.mjs",
+    "admin:setup": "node scripts/setup-admin.mjs"
+  },
+  "dependencies": {
+    "exceljs": "4.4.0",
+    "next": "16.4.5",
+    "pg": "8.16.3",
+    "qrcode": "1.5.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.15",
+    "jsdom": "29.1.1"
+  }
+}
