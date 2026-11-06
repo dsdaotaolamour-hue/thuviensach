@@ -2,14 +2,15 @@ import {randomUUID} from 'node:crypto';
 import {database,transaction} from './db.mjs';
 import {AppError,assert,text,money,url} from './domain.mjs';
 import * as svc from './service.mjs';
-import {requireAdmin,login,sessionCookies,cookies,authFetch,reauthenticate} from './auth.mjs';
+import {appOrigin,requireAdmin,login,sessionCookies,cookies,authFetch,reauthenticate} from './auth.mjs';
 import {validateImport,commitImport,exportBooks} from './excel.mjs';
 const json=(data,status=200)=>Response.json({data},{status,headers:{'Cache-Control':'no-store'}});
 export async function handle(request,segments,provider=null) {
   const path=segments.join('/'),method=request.method,requestId=randomUUID(); let admin;
   try {
     if(method!=='GET') {
-      assert(request.headers.get('origin')===process.env.APP_ORIGIN,'Nguồn yêu cầu không được phép.',403,'CSRF_REJECTED');
+      const allowedOrigin = appOrigin();
+      assert(allowedOrigin && request.headers.get('origin') === allowedOrigin, 'Nguồn yêu cầu không được phép.', 403, 'CSRF_REJECTED');
       const size=Number(request.headers.get('content-length')||0); assert(size<=7*1024*1024,'Yêu cầu quá lớn.',413);
     }
     const db=provider||database();

@@ -13,8 +13,19 @@ export async function authFetch(endpoint,body,token,method='POST') {
   const data=await r.json().catch(()=>({}));
   if(!r.ok) throw new AppError('Thông tin xác thực không hợp lệ hoặc phiên đã hết hạn.',401,'AUTH_FAILED'); return data;
 }
+export function appOrigin() {
+  const configuredOrigin = process.env.APP_ORIGIN?.trim();
+  if (configuredOrigin) return configuredOrigin;
+
+  const productionDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  if (process.env.VERCEL_ENV === 'production' && productionDomain) {
+    return 'https://' + productionDomain;
+  }
+  return null;
+}
+
 export function sessionCookies(response,session) {
-  const secure=process.env.APP_ORIGIN?.startsWith('https://')?'; Secure':'';
+  const secure=appOrigin()?.startsWith('https://')?'; Secure':'';
   const age=session?43200:0;
   response.headers.append('Set-Cookie',`lamour_access=${session?.access_token||''}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${age}${secure}`);
   response.headers.append('Set-Cookie',`lamour_refresh=${session?.refresh_token||''}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${age}${secure}`);
