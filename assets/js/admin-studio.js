@@ -71,7 +71,7 @@ installExtra = function () {
 function installStudio() {
   if (document.getElementById('studioHeading')) return;
   const admin = document.getElementById('page-admin');
-  admin.classList.add('studio-layout');
+  admin.classList.add('studio-layout', 'lamour-workspace');
   const sidebar = admin.querySelector('.admin-sidebar');
   sidebar.innerHTML = `<a class="studio-brand" href="#/admin/dashboard"><span>L</span><strong>LAMOUR<small>THƯ VIỆN SÁCH NGÀNH SPA</small></strong></a>
     <nav class="sidebar-nav" aria-label="Quản trị"><p class="studio-nav-label">Công việc hằng ngày</p>
@@ -268,21 +268,110 @@ function studioLogLabel(value) {
 function buildStudioDashboard() {
   const pane = document.getElementById('admin-tab-dashboard');
   const reminders = document.getElementById('reminderList').closest('.panel-card');
-  pane.innerHTML = `<section class="studio-welcome studio-card"><div><small class="studio-welcome-kicker">BÀN LÀM VIỆC</small><h2>Hôm nay bạn cần làm gì?</h2><p>Chọn thao tác để bắt đầu.</p></div>
-    <div class="studio-quick-actions"><button onclick="openNewLoanModal()"><span>${studioIcon('loans')}</span><b>Cho mượn sách</b><small>Chọn độc giả và sách</small></button>
-    <button onclick="switchAdminTab('loans');clearLoanFilters()"><span>${studioIcon('books')}</span><b>Nhận sách trả</b><small>Tìm phiếu đang mượn</small></button>
-    <button onclick="switchAdminTab('print')"><span>${studioIcon('print')}</span><b>In phiếu</b><small>Tìm phiếu đã phát hành</small></button></div></section>
+  pane.innerHTML = `<div class="workspace-shortcuts">
+    ${studioButton('+ Lập phiếu mượn','openNewLoanModal()','green')}
+    ${studioButton('Nhận sách trả',"switchAdminTab('loans');clearStudioLoanFilters()",'white')}
+    ${studioButton('In phiếu',"switchAdminTab('print')",'white')}</div>
     <div id="adminKpiGrid" class="studio-kpis"></div>
-    <div class="studio-dashboard-columns"><section class="studio-card"><header class="studio-panel-heading"><h2>Số dư &amp; Quỹ tiền cọc đang giữ</h2>${studioButton('Chi tiết ví →', "switchAdminTab('wallets')", 'green')}</header>
-    ${studioTable(['Mã ví', 'Ví / Hình thức', 'Số dư', 'Cọc đang giữ', 'Trạng thái'], '', 'dashboardWalletBody')}</section>
-    <section class="studio-card"><header class="studio-panel-heading"><h2>Theo dõi nhắc hạn &amp; Quá hạn</h2></header><div class="studio-card-padding">${studioButton('Tất cả phiếu →', "switchAdminTab('loans')", 'white')}<div id="dashboardAlertsList"></div></div></section></div>
-    <div class="studio-dashboard-bottom"><section class="studio-card"><header class="studio-panel-heading"><h2>Khách hoạt động nhiều</h2>${studioButton('Xem chi tiết →', "switchAdminTab('readers')", 'white')}</header><div id="studioTopReaders"></div></section>
-    <section class="studio-card"><header class="studio-panel-heading"><h2>Hoạt động gần đây</h2>${studioButton('Xem nhật ký →', "switchAdminTab('logs')", 'text')}</header><div id="studioRecentLogs" class="studio-card-padding"></div></section></div>`;
+    <div class="workspace-dashboard">
+      <div class="workspace-stack">
+        <section class="studio-card"><header class="studio-panel-heading"><div><h2>Phiếu đang theo dõi</h2><p class="studio-subtle">Tiến độ thu sách theo từng phiếu</p></div>${studioButton('Tất cả phiếu',"switchAdminTab('loans')",'white')}</header>
+        ${studioTable(['Phiếu / Độc giả','Trạng thái','Đã thu','Hạn gần nhất',''], '', 'workspaceLoanRows')}</section>
+        <section class="studio-card"><header class="studio-panel-heading"><h2>Công việc thư viện</h2>${studioButton('Mở ghi chú',"switchAdminTab('notes')",'white')}</header><div id="workspaceNoteBoard" class="workspace-note-board"></div></section>
+        <section class="studio-card"><header class="studio-panel-heading"><h2>Số dư và quỹ cọc</h2>${studioButton('Chi tiết ví',"switchAdminTab('wallets')",'white')}</header>
+        ${studioTable(['Mã ví','Hình thức','Số dư','Cọc đang giữ','Trạng thái'], '', 'dashboardWalletBody')}</section>
+      </div>
+      <aside class="workspace-stack">
+        <section class="studio-card"><header class="studio-panel-heading"><div><h2>Lịch thu sách</h2><p class="studio-subtle">Chọn ngày có sách đến hạn</p></div></header><div id="workspaceCalendar" class="workspace-calendar"></div></section>
+        <section class="studio-card"><header class="studio-panel-heading"><h2>Cần chú ý</h2></header><div id="dashboardAlertsList" class="studio-card-padding"></div></section>
+        <section class="studio-card"><header class="studio-panel-heading"><h2>Hoạt động gần đây</h2>${studioButton('Nhật ký',"switchAdminTab('logs')",'text')}</header><div id="studioRecentLogs" class="studio-card-padding"></div></section>
+      </aside>
+    </div>
+    <details class="studio-reminder-details"><summary>Độc giả mượn nhiều</summary><div id="studioTopReaders"></div></details>`;
   const details = document.createElement('details');
   details.className = 'studio-reminder-details';
   details.innerHTML = '<summary>Nhắc hạn và lịch sử liên hệ thu hồi</summary>';
   details.append(reminders);
   pane.append(details);
+}
+
+function workspaceOpenLoan(id) {
+  const loan = liveState.loans.find(loan=>loan.id===id);
+  if (!loan) return;
+  clearStudioLoanFilters();
+  document.getElementById('adminLoanSearch').value=loan.code;
+  studio.loanId=id;
+  switchAdminTab('loans');
+}
+
+function workspaceCalendarMonth(offset) {
+  const month=studio.overviewMonth || liveState.today.slice(0,7);
+  const [year,number]=month.split('-').map(Number);
+  studio.overviewMonth=new Date(Date.UTC(year,number-1+offset,1)).toISOString().slice(0,7);
+  renderWorkspaceCalendar();
+}
+
+function workspaceCalendarDay(date) {
+  studio.overviewDay=date;
+  renderWorkspaceCalendar();
+  document.getElementById('workspace-day-'+date)?.focus();
+}
+
+function renderWorkspaceCalendar() {
+  const target=document.getElementById('workspaceCalendar');
+  const month=studio.overviewMonth || liveState.today.slice(0,7);
+  const [year,number]=month.split('-').map(Number);
+  const leading=(new Date(Date.UTC(year,number-1,1)).getUTCDay()+6)%7;
+  const days=new Date(Date.UTC(year,number,0)).getUTCDate();
+  const due=new Map();
+  for (const item of liveState.loan_items) {
+    if (item.resolution_status!=='OPEN' || !item.due_on?.startsWith(month)) continue;
+    if (!due.has(item.due_on)) due.set(item.due_on,[]);
+    due.get(item.due_on).push(item);
+  }
+  const selected=studio.overviewDay?.startsWith(month) ? studio.overviewDay : liveState.today;
+  const cells=Array.from({length:days},(_,index)=>{
+    const date=month+'-'+String(index+1).padStart(2,'0');
+    const count=due.get(date)?.length || 0;
+    return `<button type="button" id="workspace-day-${date}" aria-pressed="${date===selected}" aria-label="${date}, ${count} cuốn đến hạn" onclick="workspaceCalendarDay('${date}')">${index+1}${count?'<i></i>':''}</button>`;
+  }).join('');
+  const loans=new Map(liveState.loans.map(loan=>[loan.id,loan]));
+  const rows=[...new Set((due.get(selected)||[]).map(item=>item.loan_id))].map(id=>loans.get(id)).filter(Boolean);
+  target.innerHTML=`<div class="workspace-calendar-header"><strong>Tháng ${number}, ${year}</strong><div>
+    <button type="button" aria-label="Tháng trước" onclick="workspaceCalendarMonth(-1)">‹</button>
+    <button type="button" aria-label="Tháng sau" onclick="workspaceCalendarMonth(1)">›</button></div></div>
+    <div class="workspace-calendar-grid">${['T2','T3','T4','T5','T6','T7','CN'].map(day=>`<small>${day}</small>`).join('')}
+    ${'<span></span>'.repeat(leading)}${cells}</div>
+    <div class="workspace-calendar-agenda">${rows.map(loan=>studioButton(esc(loan.code)+' · '+esc(loan.reader_snapshot?.full_name),`workspaceOpenLoan('${loan.id}')`,'mini white')).join('') || '<p class="studio-subtle">Không có phiếu đến hạn ngày đang chọn.</p>'}</div>`;
+}
+
+function renderWorkspaceOverview() {
+  const grouped=new Map();
+  for (const item of liveState.loan_items) {
+    if (!grouped.has(item.loan_id)) grouped.set(item.loan_id,[]);
+    grouped.get(item.loan_id).push(item);
+  }
+  const active=liveState.loans.filter(loan=>loan.status!=='COMPLETED').map(loan=>{
+    const items=grouped.get(loan.id)||[];
+    const due=items.filter(item=>item.resolution_status==='OPEN').map(item=>item.due_on).sort()[0];
+    return {loan,items,due};
+  }).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')).slice(0,6);
+  document.getElementById('workspaceLoanRows').innerHTML=active.map(({loan,items,due})=>{
+    const received=items.filter(item=>item.returned_on).length;
+    const overdue=due && due<liveState.today;
+    const label=overdue?'Quá hạn':loan.status==='PENDING_SETTLEMENT'?'Chờ xử lý':received?'Trả một phần':'Đang mượn';
+    return `<tr><td><b>${esc(loan.code)}</b><small>${esc(loan.reader_snapshot?.full_name)}</small></td>
+    <td><span class="studio-tag ${overdue?'overdue':''}">${label}</span></td>
+    <td><div class="workspace-progress"><progress aria-label="Tiến độ thu sách" max="${items.length||1}" value="${received}"></progress><small>${received}/${items.length}</small></div></td>
+    <td>${esc(due||'—')}</td><td>${studioButton('Mở',`workspaceOpenLoan('${loan.id}')`,'mini white')}</td></tr>`;
+  }).join('') || studioEmpty('Hiện không có phiếu đang mở.',5);
+  const notes=(liveState.notes||[]).filter(note=>!note.archived);
+  document.getElementById('workspaceNoteBoard').innerHTML=[false,true].map(done=>{
+    const list=notes.filter(note=>Boolean(note.done)===done);
+    return `<section><h3>${done?'Đã hoàn thành':'Cần thực hiện'} <small>${list.length}</small></h3>
+      ${list.slice(0,3).map(note=>`<article><b>${esc(note.title)}</b></article>`).join('') || '<p class="studio-subtle">Chưa có ghi chú.</p>'}</section>`;
+  }).join('');
+  renderWorkspaceCalendar();
 }
 
 function buildStudioPrint() {
@@ -630,6 +719,7 @@ const previousRenderDashboard = renderAdminDashboard;
 renderAdminDashboard = function () {
   if (!liveState) return;
   previousRenderDashboard();
+  renderWorkspaceOverview();
   const lastMetric = document.getElementById('adminKpiGrid').lastElementChild;
   lastMetric?.remove();
   const top = [...liveState.readers].map(reader => ({reader, count: readerItems(reader.id).length})).filter(item => item.count).sort((a, b) => b.count - a.count).slice(0, 5);

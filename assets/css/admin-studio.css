@@ -598,3 +598,137 @@ body { background: #faf9f5; }
   .modal-overlay .modal-header, .modal-overlay .modal-body, .studio-calendar-footer { padding-inline: 14px; }
   .studio-log-pagination { padding-inline: 12px; }
 }
+
+/* Planex-inspired workspace: quiet surfaces, compact navigation, clear actions. */
+:root {
+  --primary: #252320;
+  --primary-light: #413c37;
+  --primary-soft: #efebe7;
+  --text-main: #272421;
+  --text-muted: #625b55;
+  --border-color: #ded8d2;
+}
+body { background: #e8e4e0; }
+.site-header { background: #faf8f6; }
+.site-footer { background: #292623; }
+#page-home .hero-section { background: radial-gradient(ellipse at 80% 40%, #e1d8ce, transparent 64%), #f3efeb; }
+#page-home .hero-title, #page-home .hero-title span, .library-hero-subtitle,
+#page-home :is(.hero-desc, .stat-item span, .stat-item strong) { color: #332d28; }
+.library-intro, .library-card-cover, .library-book-heading { background: #f2eeea; color: #332d28; }
+.library-stock { background: #e8eee7; color: #34543a; }
+
+.lamour-workspace {
+  --studio-paper: #eae6e3;
+  --studio-green: #fbfaf8;
+  --studio-line: #e0dad5;
+  --admin-border: #e0dad5;
+  --admin-text: #272421;
+  color: var(--admin-text);
+}
+.lamour-workspace.active {
+  width: min(1660px, calc(100% - 36px));
+  min-height: calc(100vh - 36px);
+  margin: 18px auto;
+  padding: 0;
+  grid-template-columns: 90px minmax(0, 1fr);
+  border: 1px solid #faf9f7;
+  border-radius: 22px;
+  box-shadow: 0 12px 35px #34292012;
+}
+.lamour-workspace .admin-sidebar {
+  width: 90px;
+  top: 12px;
+  height: calc(100vh - 30px);
+  padding: 18px 9px 10px;
+  background: transparent;
+  border: 0;
+}
+.lamour-workspace .studio-brand { padding: 0; margin: 0 auto 18px; }
+.lamour-workspace .studio-brand > span { background: #24211e; border-radius: 13px; }
+.lamour-workspace .studio-brand strong, .lamour-workspace .studio-nav-label { display: none; }
+.lamour-workspace .sidebar-nav { gap: 4px; }
+.lamour-workspace .side-link {
+  display: grid; justify-items: center; text-align: center; gap: 3px;
+  min-height: 46px; padding: 5px 3px; color: #5a514a; font-size: 9px;
+}
+.lamour-workspace .side-link.active { color: #252320; background: #fcfaf8; box-shadow: 0 1px 5px #25232012; }
+.lamour-workspace .side-link:hover:not(.active) { color: #252320; background: #f3efec; }
+.lamour-workspace .side-icon { width: 19px; height: 19px; }
+.lamour-workspace .side-icon svg { width: 17px; height: 17px; }
+.lamour-workspace .studio-account { padding: 5px 0; margin: auto 0 0; background: transparent; }
+.lamour-workspace .studio-account :is(.studio-avatar,strong,small) { display: none; }
+.lamour-workspace .studio-account .studio-button { font-size: 9px; padding: 5px; min-height: 28px; box-shadow: none; }
+.lamour-workspace .admin-main, .lamour-workspace .admin-content { background: transparent; }
+.lamour-workspace .admin-topbar { background: transparent; min-height: 64px; padding: 12px 24px 4px; }
+.lamour-workspace .admin-content { min-height: 0; padding: 15px 24px 24px; }
+.lamour-workspace .studio-heading { margin-bottom: 18px; }
+.lamour-workspace .studio-heading h1 { font-size: clamp(22px, 2.2vw, 32px); }
+.lamour-workspace .studio-heading p, .lamour-workspace .studio-subtle { color: #655b54; }
+.lamour-workspace .studio-feature-search .studio-search { background: #f6f3f0; border: 1px solid #e5dfda; border-radius: 11px; }
+.lamour-workspace .studio-feature-search input { background: transparent; font-style: normal; }
+.lamour-workspace :is(.studio-date, .studio-top-icons > button) { background: #f6f3f0; border-color: #e5dfda; box-shadow: none; }
+.lamour-workspace .studio-card, .lamour-workspace .panel-card {
+  background: #f8f5f2; border: 1px solid #e4ded8; box-shadow: none; border-radius: 15px;
+}
+.lamour-workspace .studio-panel-heading, .lamour-workspace .studio-table th { background: transparent; color: #514943; }
+.lamour-workspace .studio-panel-heading { border-bottom-color: #e7e1dc; }
+.lamour-workspace .studio-panel-heading p { margin: 3px 0 0; }
+.lamour-workspace .studio-table :is(th,td) { border-bottom-color: #e8e2dd; }
+.lamour-workspace .studio-table tr.selected { background: #eee8e2; }
+.lamour-workspace .studio-table tbody tr:hover { background: #f0ebe6; }
+.studio-button.green, .studio-button.dark-green { background: #282421; color: #fff; box-shadow: none; }
+.studio-button.white { background: #fcfaf8; color: #322c27; box-shadow: none; border: 1px solid #e2dcd6; }
+.studio-button.text { color: #413a34; }
+.studio-section-banner { background: #f6f2ee; color: #332d28; }
+.studio-section-banner :is(small,p) { color: #62584f; }
+.modal-overlay { background: #2d282482; }
+.modal-overlay .modal-dialog { border-color: #e3dcd5; }
+.modal-overlay :is(.modal-header,.studio-calendar-footer) { background: #f7f4f1; border-color: #e5ded8; }
+.modal-overlay .modal-header :is(h2,h3) { color: #2b2622; }
+.modal-overlay .modal-close { background: #eee9e4; color: #332d28; }
+.modal-dialog :is(input:not([type=checkbox]),select,textarea) { background: #f8f6f4; border-color: #ddd6cf; }
+
+.workspace-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.lamour-workspace .studio-kpis { gap: 8px; margin-bottom: 16px; }
+.lamour-workspace .studio-kpis .kpi-card:nth-child(n) { min-height: 86px; padding: 12px 10px; background: transparent; border: 0; box-shadow: none; }
+.lamour-workspace .studio-kpis .kpi-card + .kpi-card { border-inline-start: 1px solid #d9d2cc; border-radius: 0; }
+.lamour-workspace .studio-kpis .kpi-value { color: #2b2520; font-size: clamp(17px, 2vw, 29px); }
+.lamour-workspace .studio-kpis .kpi-label { color: #655b54; }
+.workspace-dashboard { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(270px,1fr); gap: 14px; }
+.workspace-stack { display: grid; align-content: start; gap: 14px; min-width: 0; }
+.workspace-progress { display: flex; align-items: center; gap: 6px; }
+.workspace-progress progress { width: 78px; height: 7px; accent-color: #38312b; }
+.workspace-progress small { margin: 0 !important; }
+.workspace-note-board { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; padding: 12px; }
+.workspace-note-board section { min-width: 0; border-radius: 10px; background: #ede8e3; padding: 9px; }
+.workspace-note-board h3 { font-size: 12px; margin-bottom: 7px; }
+.workspace-note-board h3 small { background: #faf7f4; padding: 2px 5px; border-radius: 5px; }
+.workspace-note-board article { padding: 8px; margin-top: 5px; border-radius: 7px; background: #faf7f4; font-size: 12px; overflow-wrap: anywhere; }
+.workspace-calendar { padding: 12px; }
+.workspace-calendar-header { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 10px; font-size: 13px; }
+.workspace-calendar-header button, .workspace-calendar-grid button {
+  color: #3c342e; background: #f0ebe6; border: 0; border-radius: 7px; cursor: pointer;
+}
+.workspace-calendar-header button { width: 28px; height: 28px; margin-left: 4px; }
+.workspace-calendar-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 4px; text-align: center; }
+.workspace-calendar-grid small { font-size: 10px; color: #62584f; }
+.workspace-calendar-grid button { position: relative; min-height: 31px; font-size: 11px; }
+.workspace-calendar-grid button:hover { background: #e5dcd4; }
+.workspace-calendar-grid button[aria-pressed=true] { background: #332b25; color: #fff; }
+.workspace-calendar-grid i { position: absolute; bottom: 3px; left: calc(50% - 2px); width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+.workspace-calendar-agenda { display: grid; gap: 6px; margin-top: 11px; }
+@media (max-width: 980px) {
+  .lamour-workspace.active { display: block; width: calc(100% - 18px); margin: 9px auto; }
+  .lamour-workspace .admin-sidebar { top: 0; width: 218px; height: 100dvh; background: #f8f5f2; padding: 14px; }
+  .lamour-workspace .studio-brand strong, .lamour-workspace .studio-nav-label { display: block; }
+  .lamour-workspace .side-link { display: flex; text-align: left; padding: 7px 10px; gap: 9px; font-size: 13px; }
+  .lamour-workspace .studio-account .studio-button { font-size: 12px; }
+}
+@media (max-width: 680px) {
+  .lamour-workspace .admin-topbar, .lamour-workspace .admin-content { padding-inline: 12px; }
+  .workspace-dashboard { grid-template-columns: minmax(0,1fr); }
+  .lamour-workspace .studio-kpis .kpi-card + .kpi-card { border-inline-start: 0; }
+}
+@media print {
+  .lamour-workspace.active { width: 100%; margin: 0; border: 0; box-shadow: none; }
+}
