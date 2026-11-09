@@ -44,5 +44,23 @@ test('authenticated empty system renders every admin tab without sample records 
  for(const tab of ['dashboard','books','loans','readers','wallets','print','settings'])w.switchAdminTab(tab);
  assert.equal(w.document.getElementById('operationError').hidden,true,w.document.getElementById('operationError').textContent);
  assert.equal(errors.length,0,errors.map(e=>e.message).join('\n'));assert.ok(!w.document.getElementById('adminReadersTableBody').textContent.includes('Nguyễn Thị Thanh Hương'));
+ const loan = {id:'loan-1',code:'PM001',borrowed_on:'2026-11-01',due_on:'2026-12-01',reader_snapshot:{full_name:'Nguyễn An',phone_display:'090 123 4567'}};
+ state.print_documents.push({id:'document-1',code:'PM001-BORROW-1234',loan_id:loan.id,type:'BORROW',snapshot:{loan,settings:state.settings,items:[],transactions:[]}});
+ w.switchAdminTab('print');
+ const search = w.document.getElementById('studioPrintSearch');
+ const printButton = w.document.getElementById('studioPrintButton');
+ for (const query of ['PM001', 'nguyen an', '0901234567']) {
+   search.value = query;
+   w.renderStudioPrintChoices();
+   w.renderPrintPreview();
+   assert.equal(printButton.disabled, false);
+   assert.match(w.document.getElementById('a4PrintSheet').textContent, /Nguyễn An/);
+ }
+ search.value = 'PM999';
+ w.renderStudioPrintChoices();
+ w.renderPrintPreview();
+ assert.equal(printButton.disabled, true);
+ assert.match(w.document.getElementById('studioPrintCount').textContent, /Không tìm thấy/);
+ assert.doesNotMatch(w.document.getElementById('a4PrintSheet').textContent, /Nguyễn An/);
  dom.window.close();
 });
