@@ -271,9 +271,11 @@ function studioLogLabel(value) {
 function buildStudioDashboard() {
   const pane = document.getElementById('admin-tab-dashboard');
   const reminders = document.getElementById('reminderList').closest('.panel-card');
-  pane.innerHTML = `<div class="workspace-shortcuts">
+  pane.innerHTML = `<section class="workspace-brand-banner">
+    <div><span>THƯ VIỆN LAMOUR</span><h2>Bàn làm việc thư viện</h2><p>Theo dõi lượt mượn, lịch thu sách và công việc tại quầy.</p></div>
+    <div class="workspace-shortcuts">
     ${studioButton('+ Lập phiếu mượn','openNewLoanModal()','green')}
-    ${studioButton('Nhận sách trả',"switchAdminTab('loans');clearStudioLoanFilters()",'white')}</div>
+    ${studioButton('Nhận sách trả',"switchAdminTab('loans');clearStudioLoanFilters()",'white')}</div></section>
     <div id="adminKpiGrid" class="studio-kpis"></div>
     <div class="workspace-dashboard">
       <div class="workspace-stack">

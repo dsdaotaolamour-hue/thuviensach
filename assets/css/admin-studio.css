@@ -790,3 +790,97 @@ body { background: #e8e4e0; }
   #studioLoanPrintModal .modal-header, .studio-loan-print-actions { display: none !important; }
   #studioLoanPrintSheet { border: 0; }
 }
+
+/* Lamour brand refresh */
+:root {
+  --lamour-forest: #174c36;
+  --lamour-deep: #103a2a;
+  --lamour-mint: #e8f2eb;
+  --lamour-surface: #f4f7f5;
+  --lamour-line: #dce6df;
+  --primary: var(--lamour-forest);
+  --primary-light: #286447;
+  --primary-soft: var(--lamour-mint);
+  --text-main: #203229;
+  --text-muted: #516359;
+  --border-color: var(--lamour-line);
+}
+body { background: #e9efeb; }
+.site-header { background: #fff; }
+.site-footer { background: var(--lamour-deep); }
+#page-home .hero-section { background: radial-gradient(ellipse at 82% 45%, #d9e9da, transparent 62%), #eff5ef; }
+#page-home .hero-title, #page-home .hero-title span, .library-hero-subtitle { color: var(--lamour-deep); }
+.library-intro, .library-card-cover, .library-book-heading { background: var(--lamour-mint); color: var(--lamour-deep); }
+.library-stock { background: var(--lamour-mint); color: var(--lamour-deep); }
+
+.lamour-workspace {
+  --studio-paper: var(--lamour-surface);
+  --studio-line: var(--lamour-line);
+  --studio-green: var(--lamour-mint);
+  --studio-dark: var(--lamour-forest);
+  --admin-border: var(--lamour-line);
+  --admin-text: #203229;
+  background: var(--lamour-surface);
+}
+.lamour-workspace.active { grid-template-columns: 208px minmax(0,1fr); box-shadow: 0 14px 40px #173e2914; }
+.lamour-workspace .admin-sidebar {
+  width: 208px; background: #fff; border-inline-end: 1px solid var(--lamour-line);
+  border-radius: 20px 0 0 20px; padding: 19px 13px;
+}
+.lamour-workspace .studio-brand { margin: 0 2px 12px; }
+.lamour-workspace .studio-brand > span { background: var(--lamour-forest); }
+.lamour-workspace .studio-brand strong, .lamour-workspace .studio-nav-label { display: block; }
+.lamour-workspace .studio-brand strong { color: var(--lamour-deep); }
+.lamour-workspace .studio-nav-label { font-size: 10px; margin: 14px 8px 5px; color: #65796c; }
+.lamour-workspace .side-link { display: flex; justify-items: initial; text-align: left; gap: 9px; font-size: 12px; min-height: 39px; padding: 7px 9px; color: #41574a; }
+.lamour-workspace .side-link.active { color: var(--lamour-deep); background: var(--lamour-mint); box-shadow: inset 3px 0 var(--lamour-forest); }
+.lamour-workspace .side-link:hover:not(.active) { color: var(--lamour-deep); background: #f0f6f1; }
+.lamour-workspace .studio-account { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--lamour-line); }
+.lamour-workspace .studio-account .studio-button { font-size: 11px; min-height: 34px; }
+.lamour-workspace .admin-topbar { background: #fff; border-radius: 0 20px 0 0; border-bottom: 1px solid var(--lamour-line); padding-bottom: 10px; }
+.lamour-workspace .studio-heading p, .lamour-workspace .studio-subtle { color: #516359; }
+.lamour-workspace .studio-feature-search .studio-search,
+.lamour-workspace :is(.studio-date,.studio-top-icons > button) { background: #f5f8f6; border-color: var(--lamour-line); }
+.lamour-workspace .studio-card, .lamour-workspace .panel-card { background: #fff; border-color: var(--lamour-line); }
+.lamour-workspace .studio-panel-heading, .lamour-workspace .studio-table th { color: #284637; }
+.lamour-workspace .studio-table :is(th,td), .lamour-workspace .studio-panel-heading { border-bottom-color: #e5ece7; }
+.lamour-workspace .studio-table tr.selected, .lamour-workspace .studio-table tbody tr:hover { background: #edf5ef; }
+.studio-button.green, .studio-button.dark-green { background: var(--lamour-forest); }
+.studio-button.white { background: #fff; border-color: var(--lamour-line); color: var(--lamour-deep); }
+.studio-button.text { color: var(--lamour-forest); }
+.studio-section-banner { background: var(--lamour-mint); color: var(--lamour-deep); }
+.studio-section-banner :is(small,p) { color: #426451; }
+.modal-overlay { background: #102e226f; }
+.modal-overlay .modal-dialog, .modal-overlay :is(.modal-header,.studio-calendar-footer) { border-color: var(--lamour-line); }
+.modal-overlay :is(.modal-header,.studio-calendar-footer) { background: #f3f8f4; }
+.modal-overlay .modal-header :is(h2,h3), .modal-overlay .modal-close { color: var(--lamour-deep); }
+.modal-overlay .modal-close { background: var(--lamour-mint); }
+.modal-dialog :is(input:not([type=checkbox]),select,textarea) { background: #f8fbf8; border-color: var(--lamour-line); }
+
+.workspace-brand-banner { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; padding: clamp(18px,2.5vw,30px); border-radius: 16px; margin-bottom: 14px; background: linear-gradient(115deg,#103a2a,#235e40); color: #fff; }
+.workspace-brand-banner span { font-size: 10px; letter-spacing: .12em; font-weight: 700; color: #b9e3c6; }
+.workspace-brand-banner h2 { font-size: clamp(22px,2.4vw,33px); margin: 4px 0; }
+.workspace-brand-banner p { font-size: 12px; color: #deeee3; margin: 0; }
+.workspace-brand-banner .workspace-shortcuts { margin: 0; }
+.workspace-brand-banner .studio-button.green { background: #e2f2e5; color: #153e2b; }
+.workspace-brand-banner .studio-button.white { background: transparent; border-color: #a8ccaf; color: #fff; }
+.lamour-workspace .studio-kpis .kpi-card:nth-child(n) { background: #fff; border: 1px solid var(--lamour-line); border-radius: 12px; padding-inline: 13px; }
+.lamour-workspace .studio-kpis .kpi-value { color: var(--lamour-deep); }
+.lamour-workspace .studio-kpis .kpi-label { color: #516359; }
+.workspace-progress progress { accent-color: var(--lamour-forest); }
+.workspace-note-board section { background: #edf4ee; }
+.workspace-note-board :is(article,h3 small) { background: #fff; }
+.workspace-calendar-header button, .workspace-calendar-grid button { color: #244938; background: #edf4ee; }
+.workspace-calendar-grid button:hover { background: #dbece0; }
+.workspace-calendar-grid button[aria-pressed=true] { color: #fff; background: var(--lamour-forest); }
+@media (max-width: 980px) {
+  .lamour-workspace .admin-sidebar { width: 218px; border-radius: 0; }
+  .lamour-workspace .admin-topbar { border-radius: 20px 20px 0 0; }
+}
+@media (min-width: 981px) and (max-width: 1150px) {
+  .lamour-workspace.active { grid-template-columns: 172px minmax(0,1fr); }
+  .lamour-workspace .admin-sidebar { width: 172px; }
+}
+@media print {
+  .lamour-workspace.active { display: block; }
+}
