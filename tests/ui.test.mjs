@@ -88,5 +88,19 @@ test('authenticated empty system renders every admin tab without sample records 
  assert.equal(bookRows.rows.length,20);
  w.changeStudioBookPage(2);
  assert.equal(bookRows.rows.length,2);
+ state.loans.push({...loan,status:'PARTIAL',reader_snapshot:{...loan.reader_snapshot,code:'DG001'}});
+ state.book_copies.push({id:'copy-1',code:'DS001-001'},{id:'copy-2',code:'DS002-001'});
+ state.loan_items.push(
+   {id:'item-1',loan_id:loan.id,copy_id:'copy-1',title_snapshot:{title:'Sách đã thu'},due_on:loan.due_on,returned_on:'2026-11-06',resolution_status:'RESOLVED'},
+   {id:'item-2',loan_id:loan.id,copy_id:'copy-2',title_snapshot:{title:'Sách chưa thu'},due_on:loan.due_on,resolution_status:'OPEN'}
+ );
+ w.renderAdminLoans();
+ const loanRows=w.document.getElementById('adminLoansTableBody');
+ assert.equal(loanRows.rows.length,1);
+ assert.match(loanRows.rows[0].textContent,/1 \/ 2[\s\S]*Trả một phần/);
+ w.toggleStudioLoan(loan.id);
+ const detail=loanRows.querySelector('.studio-loan-detail');
+ assert.match(detail.textContent,/Sách đã thu[\s\S]*2026-11-06/);
+ assert.match(detail.textContent,/Sách chưa thu[\s\S]*Trả \/ Báo mất/);
  dom.window.close();
 });

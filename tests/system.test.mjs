@@ -90,6 +90,28 @@ test('multi-copy issuance is atomic, idempotent and prevents duplicate checkout'
     assert.equal((await svc.rows(db,'select * from library.loan_items')).length,2);
   }finally{await db.close();}
 });
+test('extra checkout keeps the original loan and records its own date, condition and deposit',async()=>{
+  const db=await fixture();
+  try {
+    const {p,copies}=await seed(db);
+    const issue=async input=>{
+      const q=await svc.loanQuote(db,input);
+      return tx(db,()=>svc.issueLoan(db,actor,{...input,quoteToken:svc.loanQuoteToken(q)},randomUUID()));
+    };
+    const loan=await issue({...p,copyIds:[copies[0].id]});
+    const appended=await issue({...p,loanId:loan.id,copyIds:[copies[1].id],borrowDate:'2025-02-03',
+      warningAcknowledged:true,copyNotes:{[copies[1].id]:'Bìa hơi xước'}});
+    assert.equal(appended.code,loan.code);
+    assert.equal((await svc.rows(db,'select id from library.loans')).length,1);
+    const items=await svc.rows(db,'select * from library.loan_items where loan_id=$1 order by checkout_on',[loan.id]);
+    assert.deepEqual(items.map(i=>i.checkout_on),['2025-01-31','2025-02-03']);
+    assert.equal(items[1].due_on,'2025-05-03');
+    assert.equal(items[1].condition_out_note,'Bìa hơi xước');
+    assert.equal((await svc.itemWithPolicy(db,items[1].id)).item.borrowed_on,'2025-02-03');
+    assert.equal((await svc.rows(db,"select id from library.financial_transactions where type='COLLECT_DEPOSIT' and loan_id=$1",[loan.id])).length,2);
+    assert.ok(await svc.one(db,"select id from library.audit_logs where action='ISSUE_MORE' and target_id=$1",[loan.id]));
+  } finally {await db.close();}
+});
 test('partial return: fee 15000, refund 485000; other copy retains deposit; no duplicate cash income',async()=>{
   const db=await fixture();try{
     const {p,wallet}=await seed(db);const l=await tx(db,()=>svc.issueLoan(db,actor,p,randomUUID()));

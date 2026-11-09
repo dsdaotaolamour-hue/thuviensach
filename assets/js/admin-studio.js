@@ -359,13 +359,13 @@ function buildStudioReaders() {
 function buildStudioLoans() {
   document.getElementById('admin-tab-loans').innerHTML = `<div class="studio-toolbar">${studioSearch('adminLoanSearch', 'Tìm mã phiếu, độc giả, điện thoại hoặc tên sách', 'renderAdminLoans()')}
     ${studioButton(`${studioIcon('calendar')} Tất cả ngày`, 'openStudioCalendar()', 'white')}
-    ${studioSelect('adminLoanFilter', 'Trạng thái phiếu', [['ALL', 'Tất cả trạng thái'], ['Đang mượn', 'Đang mượn'], ['Quá hạn', 'Quá hạn'], ['Chờ quyết toán', 'Chờ quyết toán'], ['Chờ sách thay thế', 'Chờ thay thế'], ['Đã trả – Đã xử lý', 'Đã xử lý']], 'renderAdminLoans()')}
+    ${studioSelect('adminLoanFilter', 'Trạng thái phiếu', [['ALL', 'Tất cả trạng thái'], ['Đang mượn', 'Đang mượn'], ['Trả một phần', 'Trả một phần'], ['Quá hạn', 'Quá hạn'], ['Chờ quyết toán', 'Chờ quyết toán'], ['Chờ sách thay thế', 'Chờ thay thế'], ['Đã trả – Đã xử lý', 'Đã xử lý']], 'renderAdminLoans()')}
     ${studioSelect('adminLoanReaderTypeFilter', 'Nhóm khách', [['ALL', 'Tất cả nhóm khách'], ...Object.values(readerLabels).map(label => [label, label])], 'renderAdminLoans()')}
     ${studioButton('Tìm kiếm', 'renderAdminLoans()', 'text')}${studioButton('Xóa lọc', 'clearStudioLoanFilters()', 'text danger-text')}
     <div class="studio-toolbar-actions">${studioButton('＋ THÊM PHIẾU MỚI', 'openNewLoanModal()', 'green')}</div></div>
     <p id="studioLoanRangeLabel" class="studio-result"></p><div class="studio-loan-counts" id="loanStatusTabs"><span>Tất cả <b id="loanCountAll">0</b></span><span>Đang mở <b id="loanCountActive">0</b></span><span>Quá hạn <b id="loanCountOverdue">0</b></span><span>Đã xử lý <b id="loanCountDone">0</b></span></div>
     <p id="adminLoanResultCount" class="studio-result"></p><section class="studio-card studio-loan-list">
-    ${studioTable(['Mã phiếu', 'Họ và tên', 'Số điện thoại', 'Cuốn sách', 'Ngày mượn', 'Hạn trả', 'Cọc đang giữ', 'Trạng thái', 'Thao tác'], '', 'adminLoansTableBody')}</section>`;
+    ${studioTable(['Mã phiếu', 'Độc giả', 'Đã nhận / Tổng', 'Ngày mượn', 'Hạn trả', 'Trạng thái', 'Thao tác'], '', 'adminLoansTableBody')}</section>`;
 }
 
 function selectedTitle() { return liveState?.book_titles.find(book => book.id === studio.bookId); }
@@ -520,43 +520,105 @@ function renderStudioReaderHistory() {
 }
 
 function studioItemStatus(item) {
-  if (item.resolution_status === 'RESOLVED') return 'Đã trả – Đã xử lý';
+  if (item.resolution_status === 'RESOLVED') return item.loss_confirmed_on ? 'Báo mất · Đã xử lý' : 'Đã trả – Đã xử lý';
   if (item.resolution_status === 'RETURNED') return 'Chờ quyết toán';
   if (item.resolution_status === 'LOST_PENDING') return 'Chờ sách thay thế';
   return item.due_on < liveState.today ? 'Quá hạn' : 'Đang mượn';
 }
 
+function studioLoanDetails(loan, items, copies) {
+  const body = items.map(item => {
+    let operation = '';
+    if (item.resolution_status === 'OPEN') operation = studioButton('Trả / Báo mất', `openReturnModal('${item.id}')`, 'mini dark-green') + studioButton('Liên hệ', `recordContact('${item.id}')`, 'mini white');
+    if (item.resolution_status === 'RETURNED') operation = studioButton('Quyết toán', `settlePendingUi('${item.id}')`, 'mini dark-green');
+    if (item.resolution_status === 'LOST_PENDING') operation = studioButton('Nhận thay thế', `receiveReplacement('${item.id}')`, 'mini dark-green') + studioButton('Quyết toán', `settlePendingUi('${item.id}')`, 'mini white');
+    const status = studioItemStatus(item);
+    const received = item.returned_on || (item.loss_confirmed_on ? 'Báo mất ' + item.loss_confirmed_on : '—');
+    return `<tr><td><b>${esc(copies.get(item.copy_id)?.code || '—')}</b><small>${esc(item.title_snapshot?.title)}</small></td>
+      <td>${esc(item.checkout_on || loan.borrowed_on)}</td><td>${esc(item.due_on)}</td><td>${esc(received)}</td><td>${formatCurrency(itemDeposit(item.id))}</td>
+      <td><span class="studio-tag ${status === 'Quá hạn' ? 'overdue' : ''}">${esc(status)}</span></td><td class="studio-row-actions">${operation || '—'}</td></tr>`;
+  }).join('');
+  return `<section class="studio-loan-detail"><header><div><h3>Chi tiết phiếu ${esc(loan.code)}</h3><p>Ngày mượn ${esc(loan.borrowed_on)} · ${items.length} cuốn</p></div>
+    <div>${loan.status!=='COMPLETED' ? studioButton('Mượn thêm sách', `openStudioLoanForm('${loan.id}')`, 'mini green') : ''}
+    ${items.length ? studioButton('In / xem chứng từ', `previewLoanInPrintTab('${items[0].id}')`, 'mini white') : ''}</div></header>
+    ${studioTable(['Cuốn sách', 'Ngày giao', 'Hạn trả', 'Ngày nhận / Báo mất', 'Cọc đang giữ', 'Trạng thái', 'Thao tác'],body || studioEmpty('Phiếu chưa có cuốn sách.',7))}
+    ${studioLoanHistory(loan,items,copies)}</section>`;
+}
+
+function studioLoanHistory(loan,items,copies) {
+  const events=[];
+  for (const item of items) {
+    const code=copies.get(item.copy_id)?.code || item.title_snapshot?.title || 'Cuốn sách';
+    events.push({date:item.checkout_on || loan.borrowed_on,label:'Giao sách',detail:code+' · '+(item.condition_out_note || item.condition_out || '—')});
+    if (item.returned_on) events.push({date:item.returned_on,label:'Nhận lại sách',detail:code});
+    if (item.loss_confirmed_on) events.push({date:item.loss_confirmed_on,label:'Ghi nhận mất',detail:code});
+  }
+  events.sort((a,b)=>b.date.localeCompare(a.date));
+  return `<details class="studio-loan-history"><summary>Lịch sử giao và nhận sách (${events.length})</summary>
+    <ul>${events.map(event=>`<li><time>${esc(event.date)}</time> · <b>${event.label}</b> · ${esc(event.detail)}</li>`).join('')}</ul></details>`;
+}
+
+function toggleStudioLoan(id) {
+  studio.loanId = studio.loanId === id ? null : id;
+  renderAdminLoans();
+  document.getElementById('studio-loan-button-'+id)?.focus({preventScroll:true});
+}
+
 renderAdminLoans = function () {
   if (!liveState) return;
   const query = normalizeSearch(val('adminLoanSearch'));
-  const items = liveState.loan_items.filter(item => {
-    const loan = liveState.loans.find(loan => loan.id === item.loan_id);
-    const reader = liveState.readers.find(reader => reader.id === loan.reader_id);
-    const copy = liveState.book_copies.find(copy => copy.id === item.copy_id);
-    return (!query || normalizeSearch(`${loan.code} ${reader.full_name} ${reader.phone_display} ${copy.code} ${item.title_snapshot.title}`).includes(query))
-      && (val('adminLoanFilter') === 'ALL' || studioItemStatus(item) === val('adminLoanFilter'))
-      && (val('adminLoanReaderTypeFilter') === 'ALL' || readerLabels[reader.reader_category] === val('adminLoanReaderTypeFilter'))
-      && (!studio.loanRange || loan.borrowed_on >= studio.loanRange[0] && loan.borrowed_on <= studio.loanRange[1]);
+  const filter = val('adminLoanFilter');
+  const group = val('adminLoanReaderTypeFilter');
+  const readers = new Map(liveState.readers.map(reader=>[reader.id,reader]));
+  const copies = new Map(liveState.book_copies.map(copy=>[copy.id,copy]));
+  const grouped = new Map();
+  for (const item of liveState.loan_items) {
+    if (!grouped.has(item.loan_id)) grouped.set(item.loan_id,[]);
+    grouped.get(item.loan_id).push(item);
+  }
+  const loans = liveState.loans.map(loan => {
+    const items = grouped.get(loan.id) || [];
+    const reader = loan.reader_snapshot || readers.get(loan.reader_id) || {};
+    const received = items.filter(item=>item.returned_on).length;
+    const open = items.filter(item=>item.resolution_status==='OPEN').length;
+    const overdue = items.some(item=>studioItemStatus(item)==='Quá hạn');
+    const pendingReplacement = items.some(item=>item.resolution_status==='LOST_PENDING');
+    const pendingSettlement = items.some(item=>item.resolution_status==='RETURNED');
+    const done = loan.status==='COMPLETED';
+    const status = done ? (received===items.length ? 'Đã thu đủ' : 'Đã xử lý') :
+      overdue ? 'Quá hạn' : open && open<items.length ? 'Trả một phần' :
+      pendingReplacement ? 'Chờ sách thay thế' : pendingSettlement ? 'Chờ quyết toán' : 'Đang mượn';
+    return {loan,items,reader,received,open,overdue,pendingReplacement,pendingSettlement,done,status};
   });
-  setText('loanCountAll', liveState.loans.length);
-  setText('loanCountActive', liveState.loans.filter(loan => loan.status !== 'COMPLETED').length);
-  setText('loanCountOverdue', new Set(liveState.loan_items.filter(item => studioItemStatus(item) === 'Quá hạn').map(item => item.loan_id)).size);
-  setText('loanCountDone', liveState.loans.filter(loan => loan.status === 'COMPLETED').length);
-  setText('adminLoanResultCount', `${items.length} cuốn trên ${new Set(items.map(item => item.loan_id)).size} phiếu`);
-  setText('studioLoanRangeLabel', studio.loanRange ? `Ngày mượn từ ${studio.loanRange[0]} đến ${studio.loanRange[1]}` : 'Đang xem tất cả ngày mượn');
-  document.getElementById('adminLoansTableBody').innerHTML = items.map(item => {
-    const loan = liveState.loans.find(loan => loan.id === item.loan_id);
-    const reader = liveState.readers.find(reader => reader.id === loan.reader_id);
-    const copy = liveState.book_copies.find(copy => copy.id === item.copy_id);
-    const status = studioItemStatus(item);
-    let operation = studioButton('Trả / Báo mất', `openReturnModal('${item.id}')`, 'mini dark-green');
-    if (item.resolution_status === 'RESOLVED') operation = studioButton('In phiếu', `previewLoanInPrintTab('${item.id}')`, 'mini white');
-    if (item.resolution_status === 'RETURNED') operation = studioButton('Quyết toán', `settlePendingUi('${item.id}')`, 'mini dark-green');
-    if (item.resolution_status === 'LOST_PENDING') operation = studioButton('Nhận thay thế', `receiveReplacement('${item.id}')`, 'mini dark-green') + studioButton('Quyết toán', `settlePendingUi('${item.id}')`, 'mini white');
-    return `<tr><td>${esc(loan.code)}</td><td>${esc(reader.full_name)}</td><td>${esc(reader.phone_display)}</td><td>${esc(copy.code)}<small>${esc(item.title_snapshot.title)}</small></td><td>${loan.borrowed_on}</td><td>${item.due_on}</td><td>${formatCurrency(itemDeposit(item.id))}</td><td><span class="studio-tag ${status === 'Quá hạn' ? 'overdue' : ''}">${status}</span></td><td class="studio-row-actions">${operation}${studioButton('Liên hệ', `recordContact('${item.id}')`, 'mini white')}</td></tr>`;
-  }).join('') || studioEmpty('Chưa có phiếu phù hợp với bộ lọc.', 9);
+  const visible = loans.filter(({loan,items,reader,open,overdue,pendingReplacement,pendingSettlement,done}) => {
+    const search = [loan.code,reader.code,reader.full_name,reader.phone_display,...items.flatMap(item=>[copies.get(item.copy_id)?.code,item.title_snapshot?.title])].join(' ');
+    const matchesStatus = filter==='ALL' ||
+      (filter==='Đang mượn' && open>0) ||
+      (filter==='Trả một phần' && open>0 && open<items.length) ||
+      (filter==='Quá hạn' && overdue) ||
+      (filter==='Chờ sách thay thế' && pendingReplacement) ||
+      (filter==='Chờ quyết toán' && pendingSettlement) ||
+      (filter==='Đã trả – Đã xử lý' && done);
+    return matchesStatus && (!query || normalizeSearch(search).includes(query))
+      && (group==='ALL' || readerLabels[loan.category_snapshot || reader.reader_category]===group)
+      && (!studio.loanRange || loan.borrowed_on>=studio.loanRange[0] && loan.borrowed_on<=studio.loanRange[1]);
+  });
+  setText('loanCountAll',loans.length);
+  setText('loanCountActive',loans.filter(row=>!row.done).length);
+  setText('loanCountOverdue',loans.filter(row=>row.overdue).length);
+  setText('loanCountDone',loans.filter(row=>row.done).length);
+  setText('adminLoanResultCount',`${visible.length} phiếu`);
+  setText('studioLoanRangeLabel',studio.loanRange ? `Ngày mượn từ ${studio.loanRange[0]} đến ${studio.loanRange[1]}` : 'Đang xem tất cả ngày mượn');
+  document.getElementById('adminLoansTableBody').innerHTML = visible.map(({loan,items,reader,received,overdue,status})=>{
+    const expanded = studio.loanId===loan.id;
+    return `<tr class="${expanded ? 'selected' : ''}"><td><b>${esc(loan.code)}</b></td>
+      <td>${esc(reader.full_name)}<small>${esc(reader.phone_display)}</small></td><td>${received} / ${items.length}</td>
+      <td>${esc(loan.borrowed_on)}</td><td>${esc(items.filter(item=>item.resolution_status==='OPEN').map(item=>item.due_on).sort()[0] || loan.due_on)}</td>
+      <td><span class="studio-tag ${overdue ? 'overdue' : ''}">${esc(status)}</span></td>
+      <td><button type="button" class="studio-button mini white" id="studio-loan-button-${loan.id}" aria-expanded="${expanded}" onclick="toggleStudioLoan('${loan.id}')">${expanded ? 'Thu gọn' : 'Mở phiếu'}</button></td></tr>
+      ${expanded ? `<tr class="studio-loan-detail-row"><td colspan="7">${studioLoanDetails(loan,items,copies)}</td></tr>` : ''}`;
+  }).join('') || studioEmpty('Chưa có phiếu phù hợp với bộ lọc.',7);
 };
-
 function clearStudioLoanFilters() {
   studio.loanRange = null;
   for (const id of ['adminLoanFilter', 'adminLoanReaderTypeFilter']) document.getElementById(id).value = 'ALL';
@@ -1274,17 +1336,131 @@ reverseTransferUi = async function (id) {
   if (confirmed) await action(async () => { await api('admin/transactions/reverse', {id, reason: confirmed.reason}); await refreshState(); });
 };
 
+const baseOpenNewLoanModal = openNewLoanModal;
+const baseLoanPayload = loanPayload;
+let studioAppendLoanId = null;
+let studioLoanQuoteRequest = 0;
+const studioLoanCopyNotes = new Map();
+
+openNewLoanModal = function () { openStudioLoanForm(); };
+
+function openStudioLoanForm(loanId = null) {
+  if (!liveState) return;
+  const loan = liveState.loans.find(row=>row.id===loanId);
+  if (loanId && (!loan || loan.status==='COMPLETED')) return;
+  studioAppendLoanId = loanId;
+  studioLoanQuoteRequest++;
+  studioLoanCopyNotes.clear();
+  baseOpenNewLoanModal();
+  document.getElementById('loanReaderSelect').value='';
+  document.getElementById('loanStartDate').min=loan?.borrowed_on || '';
+  document.getElementById('loanStartDate').max=liveState.today;
+  document.querySelector('#newLoanModal .modal-header h3').textContent = loan ? 'Mượn thêm · '+loan.code : 'Lập phiếu mượn sách mới';
+  document.getElementById('loanReaderSearch').disabled = Boolean(loan);
+  document.getElementById('loanReaderSelect').disabled = Boolean(loan);
+  document.getElementById('studioLoanFormHistory').innerHTML = loan
+    ? studioLoanHistory(loan,liveState.loan_items.filter(item=>item.loan_id===loan.id),new Map(liveState.book_copies.map(copy=>[copy.id,copy])))
+    : '';
+  filterStudioLoanReaders(loan?.reader_id);
+  filterStudioLoanBooks();
+  renderStudioLoanCart();
+  void onLoanReaderChange();
+}
+
+function filterStudioLoanReaders(lockedReaderId) {
+  const select=document.getElementById('loanReaderSelect');
+  const previous=lockedReaderId || select.value;
+  const query=normalizeSearch(val('loanReaderSearch'));
+  const readers=liveState.readers.filter(reader=>!reader.archived_at && reader.account_status!=='Tạm khóa'
+    && (lockedReaderId ? reader.id===lockedReaderId : normalizeSearch([reader.code,reader.full_name,reader.phone_display,reader.phone_normalized].join(' ')).includes(query)));
+  select.replaceChildren(new Option('Chọn độc giả',''));
+  for (const reader of readers) select.add(new Option([reader.code,reader.full_name,reader.phone_display,readerLabels[reader.reader_category]].filter(Boolean).join(' · '),reader.id));
+  if (readers.some(reader=>reader.id===previous)) select.value=previous;
+  else if (query && readers.length===1) select.value=readers[0].id;
+  void onLoanReaderChange();
+}
+
+function filterStudioLoanBooks() {
+  const select=document.getElementById('loanBookMatch');
+  const query=normalizeSearch(val('loanBookSearch'));
+  const choices=[...document.getElementById('loanCopySelect').options].filter(option=>!option.selected && normalizeSearch(option.text).includes(query));
+  select.replaceChildren();
+  for (const option of choices) select.add(new Option(option.text,option.value));
+  if (!choices.length) select.add(new Option('Không có cuốn phù hợp',''));
+  select.disabled=!choices.length;
+}
+
+function addStudioLoanCopy() {
+  const option=[...document.getElementById('loanCopySelect').options].find(option=>option.value===val('loanBookMatch'));
+  if (!option || option.selected) return;
+  if (studioLoanCopyNotes.size>=100) {showToast('Mỗi lần giao tối đa 100 cuốn.');return;}
+  option.selected=true;
+  const copy=liveState.book_copies.find(copy=>copy.id===option.value);
+  studioLoanCopyNotes.set(option.value,[copy?.physical_condition,copy?.condition_note].filter(Boolean).join(' · ') || 'Sách tốt, nguyên vẹn');
+  renderStudioLoanCart();
+  filterStudioLoanBooks();
+  void onLoanReaderChange();
+}
+
+function removeStudioLoanCopy(id) {
+  const option=[...document.getElementById('loanCopySelect').options].find(option=>option.value===id);
+  if (option) option.selected=false;
+  studioLoanCopyNotes.delete(id);
+  renderStudioLoanCart();
+  filterStudioLoanBooks();
+  void onLoanReaderChange();
+}
+
+function renderStudioLoanCart() {
+  const options=[...document.getElementById('loanCopySelect').selectedOptions];
+  document.getElementById('studioLoanCart').innerHTML = `<p><b>${options.length} cuốn sẽ giao</b></p>` + options.map(option=>`<div class="studio-loan-cart-row">
+    <div><strong>${esc(option.text)}</strong><label>Tình trạng khi giao<input required maxlength="2000" value="${esc(studioLoanCopyNotes.get(option.value))}" oninput="studioLoanCopyNotes.set('${option.value}',this.value)"></label></div>
+    ${studioButton('Bỏ',`removeStudioLoanCopy('${option.value}')`,'mini white')}</div>`).join('');
+}
+
+loanPayload = function () {
+  return {...baseLoanPayload(),loanId:studioAppendLoanId,copyNotes:Object.fromEntries(studioLoanCopyNotes)};
+};
+
+onLoanReaderChange = async function () {
+  const request=++studioLoanQuoteRequest;
+  const input=loanPayload();
+  document.getElementById('loanDueDate').value='';
+  document.getElementById('loanDepositInput').value='';
+  document.getElementById('loanDepositConfirmed').checked=false;
+  document.getElementById('loanWarningAck').checked=false;
+  if (!input.readerId || !input.copyIds.length || !input.borrowDate) {
+    setText('loanWarnings','Chọn độc giả, ngày mượn và thêm sách để tính cọc.');
+    return;
+  }
+  setText('loanWarnings','Đang tính hạn trả và tiền cọc…');
+  try {
+    const quote=await api('admin/loans/quote',input);
+    if (request!==studioLoanQuoteRequest) return;
+    document.getElementById('loanDueDate').value=quote.dueDate;
+    document.getElementById('loanDepositInput').value=quote.deposit;
+    setText('loanWarnings',quote.overdue ? `Độc giả có ${quote.overdue} cuốn quá hạn. Xác nhận đã xem cảnh báo để tiếp tục.` : 'Đã tính theo nhóm độc giả và chính sách hiện hành.');
+  } catch (error) {
+    if (request===studioLoanQuoteRequest) setText('loanWarnings',error.message);
+  }
+};
+
 submitNewLoan = async function (event) {
   event.preventDefault();
   await action(async () => {
     const input = loanPayload();
+    if (!input.readerId || !input.copyIds.length) throw new Error('Chọn độc giả và thêm ít nhất một cuốn sách.');
     const quote = await api('admin/loans/quote', input);
-    const confirmed = await requestStudioDialog('Phát hành phiếu mượn', `${input.copyIds.length} cuốn · Hạn trả ${quote.dueDate} · Tiền cọc ${formatCurrency(quote.deposit)}. Xác nhận bàn giao và tiền cọc đã nhận theo phiếu.`);
+    const confirmed = await requestStudioDialog(input.loanId ? 'Xác nhận giao thêm sách' : 'Phát hành phiếu mượn', `${input.copyIds.length} cuốn · Hạn trả ${quote.dueDate} · Tiền cọc ${formatCurrency(quote.deposit)}. Xác nhận bàn giao và tiền cọc đã nhận theo phiếu.`);
     if (!confirmed) return;
-    await api('admin/loans/issue', {...input, quoteToken: quote.quoteToken});
+    const loan = await api('admin/loans/issue', {...input, quoteToken: quote.quoteToken});
     closeModal('newLoanModal');
     await refreshState();
-    showToast('Đã phát hành phiếu mượn.');
+    studio.loanId = loan.id;
+    clearStudioLoanFilters();
+    document.getElementById('adminLoanSearch').value = loan.code;
+    switchAdminTab('loans');
+    showToast((input.loanId ? 'Đã giao thêm sách trên phiếu ' : 'Đã phát hành phiếu ') + loan.code + '.');
   }, event.target);
 };
 
@@ -1296,6 +1472,7 @@ submitReturnLoan = async function (event) {
     const input = {...returnPayload(), version: returnQuoteValue.version, quoteHash: returnQuoteValue.quoteHash};
     const confirmed = await requestStudioDialog('Xác nhận xử lý cuốn sách', input.settleNow ? 'Ghi nhận tình trạng sách và các khoản thu / hoàn theo báo giá đã xem.' : 'Ghi nhận sách đã nhận. Tiền và nghĩa vụ được giữ để quyết toán sau.');
     if (!confirmed) return;
+    studio.loanId = liveState.loan_items.find(item=>item.id===input.itemId)?.loan_id || studio.loanId;
     await api('admin/returns', input);
     closeModal('returnLoanModal');
     await refreshState();

@@ -1224,13 +1224,20 @@
       </div>
       <div class="modal-body">
         <form id="newLoanForm" onsubmit="submitNewLoan(event)">
+          <div id="studioLoanFormHistory"></div>
           <div class="form-row">
-            <label>Chọn Độc Giả (Tra theo SĐT)</label>
+            <label for="loanReaderSearch">Tìm độc giả theo mã, tên hoặc số điện thoại</label>
+            <input id="loanReaderSearch" type="search" placeholder="Ví dụ: DG001" oninput="filterStudioLoanReaders()" />
+            <label for="loanReaderSelect">Độc giả trên phiếu</label>
             <select id="loanReaderSelect" onchange="onLoanReaderChange()" required></select>
           </div>
           <div class="form-row">
-            <label>Chọn Bản Sao Sách Đang Có Sẵn</label>
-            <select id="loanCopySelect" multiple size="6" onchange="onLoanReaderChange()" required></select>
+            <label for="loanBookSearch">Tìm sách có sẵn theo mã hoặc tên</label>
+            <input id="loanBookSearch" type="search" placeholder="Ví dụ: DS001 hoặc tên sách" oninput="filterStudioLoanBooks()" />
+            <div class="studio-loan-picker"><select id="loanBookMatch" aria-label="Cuốn sách tìm được"></select>
+              <button type="button" class="studio-button white" onclick="addStudioLoanCopy()">Thêm sách</button></div>
+            <select id="loanCopySelect" multiple hidden aria-hidden="true"></select>
+            <div id="studioLoanCart"></div>
           </div>
           <div class="form-row-grid">
             <div>
@@ -1256,16 +1263,13 @@
               </select>
             </div>
           </div>
-          <div class="form-row mt-8">
-            <label>Tình trạng sách &amp; Ghi chú hư hỏng có sẵn trước khi giao</label>
-            <input type="text" id="loanConditionNote" value="Sách tốt, nguyên vẹn, đủ trang" required />
-          </div>
+          <input type="hidden" id="loanConditionNote" value="Xem tình trạng bàn giao theo từng cuốn" />
           <div id="loanWarnings" role="status"></div>
 <label><input type="checkbox" id="loanWarningAck" /> Đã xem cảnh báo và xác minh nhóm khách hàng</label><br/>
 <label><input type="checkbox" id="loanDepositConfirmed" /> Đã thực nhận đủ tiền cọc hiển thị</label>
 <div class="modal-cta-row mt-16">
             <button type="button" class="btn btn-outline" onclick="closeModal('newLoanModal')">Hủy</button>
-            <button type="submit" class="btn btn-primary">Xác Nhận Giao Sách &amp; Ghi Nhận Hệ Thống</button>
+            <button type="submit" class="btn btn-primary">Xác nhận giao sách</button>
           </div>
         </form>
       </div>

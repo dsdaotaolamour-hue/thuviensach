@@ -83,16 +83,22 @@ export async function loanQuote(c,p) {
   assert(Array.isArray(p.copyIds)&&p.copyIds.length>0&&p.copyIds.length<=100&&new Set(p.copyIds).size===p.copyIds.length,'Chọn từ 1 đến 100 cuốn, không trùng.');
   const reader=await one(c,'select * from library.readers where id=$1 and archived_at is null',[p.readerId]); assert(reader,'Độc giả không tồn tại.',404);
   assert(reader.account_status==='Hoạt động','Hồ sơ độc giả bị khóa.');
+  const loan=p.loanId ? await one(c,'select * from library.loans where id=$1',[p.loanId]) : null;
+  if (p.loanId) {
+    assert(loan && loan.reader_id===reader.id && loan.status!=='COMPLETED','Chỉ thêm sách vào phiếu đang mở của đúng độc giả.',409);
+    assert(p.borrowDate>=loan.borrowed_on,'Ngày giao thêm không được trước ngày mở phiếu.');
+  }
   const pol=await policy(c), copies=await rows(c,`select c.*,row_to_json(t) title from library.book_copies c join library.book_titles t on t.id=c.title_id where c.id=any($1::uuid[]) order by c.id`,[p.copyIds]);
   assert(copies.length===p.copyIds.length&&copies.every(x=>x.status==='READY'&&!x.title.archived_at),'Có cuốn không còn sẵn sàng.',409,'COPY_NOT_AVAILABLE');
   const overdue=await one(c,`select count(*) n from library.loan_items i join library.loans l on l.id=i.loan_id where l.reader_id=$1 and i.resolution_status='OPEN' and i.due_on<$2`,[reader.id,today()]);
   const group=reader.policy_group_default, per=group==='COMPANY'?0:Number(pol.walkin_deposit_vnd);
-  return {reader,policy:pol,copies,dueDate:addMonths(p.borrowDate,group==='COMPANY'?pol.company_term_months:pol.walkin_term_months),deposit:per*copies.length,perCopyDeposit:per,overdue:Number(overdue.n)};
+  return {loan,reader,policy:pol,copies,dueDate:addMonths(p.borrowDate,group==='COMPANY'?pol.company_term_months:pol.walkin_term_months),deposit:per*copies.length,perCopyDeposit:per,overdue:Number(overdue.n)};
 }
 export async function issueLoan(c,actor,p,key) {
   // Stable ordered row locks serialize checkout of the same physical copies.
   assert(Array.isArray(p.copyIds),'Thiếu danh sách cuốn.');
   await one(c,'select id from library.readers where id=$1 for update',[p.readerId]);
+  if (p.loanId) await one(c,'select id from library.loans where id=$1 for update',[p.loanId]);
   await rows(c,`select t.id from library.book_titles t where t.id in
     (select title_id from library.book_copies where id=any($1::uuid[])) order by t.id for share`,[p.copyIds]);
   await rows(c,'select id from library.book_copies where id=any($1::uuid[]) order by id for update',[p.copyIds]);
@@ -101,22 +107,25 @@ export async function issueLoan(c,actor,p,key) {
   assert(!q.overdue||p.warningAcknowledged===true,'Cần xác nhận đã đọc cảnh báo quá hạn.');
   if(q.deposit) { assert(p.depositConfirmed===true,'Cần xác nhận đã nhận đủ tiền cọc.'); await checkWallet(c,p.walletId); }
   text(p.conditionNote,'Tình trạng bàn giao',2000,true);
-  const l=await one(c,`insert into library.loans(code,reader_id,policy_version_id,reader_snapshot,policy_group_snapshot,category_snapshot,borrowed_on,due_on,warning_acknowledged_at,verification_note,notes,delivery_method,created_by)
+  const l=q.loan || await one(c,`insert into library.loans(code,reader_id,policy_version_id,reader_snapshot,policy_group_snapshot,category_snapshot,borrowed_on,due_on,warning_acknowledged_at,verification_note,notes,delivery_method,created_by)
     values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning *`,[await nextCode(c,'loan','PM'),q.reader.id,q.policy.id,JSON.stringify(q.reader),q.reader.policy_group_default,q.reader.reader_category,p.borrowDate,q.dueDate,p.warningAcknowledged?new Date():null,p.verificationNote||'',p.notes||'',p.deliveryMethod||'Tại quầy',actor]);
   const tx=q.deposit?await financial(c,actor,'COLLECT_DEPOSIT',l,q.deposit,key+':deposit','Thu cọc khi bàn giao sách'):null;
   if(tx) await cash(c,tx.id,p.walletId,'IN',q.deposit);
   for(const cp of q.copies) {
-    const i=await one(c,`insert into library.loan_items(loan_id,copy_id,title_snapshot,condition_out,condition_out_note,due_on,deposit_required_vnd,deposit_wallet_id)
-      values($1,$2,$3,$4,$5,$6,$7,$8) returning *`,[l.id,cp.id,JSON.stringify(cp.title),cp.physical_condition,p.conditionNote,q.dueDate,q.perCopyDeposit,q.deposit?p.walletId:null]);
+    const condition=text(p.copyNotes?.[cp.id] ?? p.conditionNote,'Tình trạng bàn giao',2000,true);
+    const i=await one(c,`insert into library.loan_items(loan_id,copy_id,title_snapshot,condition_out,condition_out_note,due_on,deposit_required_vnd,deposit_wallet_id,checkout_on,checkout_policy_id)
+      values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *`,[l.id,cp.id,JSON.stringify(cp.title),cp.physical_condition,condition,q.dueDate,q.perCopyDeposit,q.deposit?p.walletId:null,p.borrowDate,q.policy.id]);
     if(tx) await deposit(c,tx.id,i.id,'INCREASE','COLLECT',q.perCopyDeposit);
     await c.query("update library.book_copies set status='ON_LOAN',version=version+1,updated_at=now() where id=$1",[cp.id]);
   }
-  await audit(c,actor,'ISSUE','loans',l.id,null,l);
+  if (q.loan) await updateLoanStatus(c,l.id);
+  await audit(c,actor,q.loan?'ISSUE_MORE':'ISSUE','loans',l.id,null,{code:l.code,date:p.borrowDate,dueOn:q.dueDate,copies:q.copies.map(copy=>copy.code),deposit:q.deposit});
   await printSnapshot(c,actor,l.id,'BORROW'); return l;
 }
-export function loanQuoteToken(q){return hash({readerId:q.reader.id,readerVersion:q.reader.version,policy:q.policy.id,copies:q.copies.map(c=>[c.id,c.version]),dueDate:q.dueDate,deposit:q.deposit});}
+export function loanQuoteToken(q){return hash({loanId:q.loan?.id,readerId:q.reader.id,readerVersion:q.reader.version,policy:q.policy.id,copies:q.copies.map(c=>[c.id,c.version]),dueDate:q.dueDate,deposit:q.deposit});}
 export async function itemWithPolicy(c,itemId,lock=false) {
-  const i=await one(c,`select i.*,l.borrowed_on,l.reader_id,l.code loan_code,l.policy_version_id from library.loan_items i join library.loans l on l.id=i.loan_id where i.id=$1 ${lock?'for update of i,l':''}`,[itemId]); assert(i,'Không tìm thấy dòng phiếu.',404);
+  const i=await one(c,`select i.*,coalesce(i.checkout_on,l.borrowed_on) borrowed_on,l.reader_id,l.code loan_code,
+    coalesce(i.checkout_policy_id,l.policy_version_id) policy_version_id from library.loan_items i join library.loans l on l.id=i.loan_id where i.id=$1 ${lock?'for update of i,l':''}`,[itemId]); assert(i,'Không tìm thấy dòng phiếu.',404);
   const d=await one(c,"select coalesce(sum(case when direction='INCREASE' then amount_vnd else -amount_vnd end),0) n from library.deposit_entries where loan_item_id=$1",[itemId]);
   i.deposit_held=Number(d.n); const pol=await one(c,'select * from library.policy_versions where id=$1',[i.policy_version_id]); return {item:i,policy:pol};
 }
