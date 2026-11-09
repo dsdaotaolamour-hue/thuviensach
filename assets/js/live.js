@@ -24,8 +24,28 @@ async function api(path,body,method=body?'POST':'GET',key) {
 }
 async function action(fn,form) {
   if(form?.dataset.busy)return;
+  const box=document.getElementById('operationError');
+  if(box) box.hidden=true;
+  form?.querySelector('.studio-action-error')?.remove();
   if(form){form.dataset.busy='1';form.querySelectorAll('button[type=submit]').forEach(b=>b.disabled=true);}
-  try {return await fn();} catch(e) {showToast(e.message);const box=document.getElementById('operationError');if(box){box.hidden=false;box.textContent=e.message;}return null;}
+  try {return await fn();} catch(e) {
+    const container=form?.isConnected ? form : box;
+    if(container) {
+      const notice=document.createElement('div');
+      notice.className='studio-action-error';
+      notice.setAttribute('role','alert');
+      const message=document.createElement('span');
+      message.textContent=e.message;
+      const dismiss=document.createElement('button');
+      dismiss.type='button';
+      dismiss.textContent='Đóng';
+      dismiss.onclick=()=>{notice.remove();if(container===box)box.hidden=true;};
+      notice.append(message,dismiss);
+      if(container===box){box.replaceChildren(notice);box.hidden=false;}
+      else {form.append(notice);notice.scrollIntoView?.({block:'nearest'});}
+    } else showToast(e.message);
+    return null;
+  }
   finally {if(form){delete form.dataset.busy;form.querySelectorAll('button[type=submit]').forEach(b=>b.disabled=false);}}
 }
 function clearPrivate(){liveState=null;db=structuredClone(DEFAULT_DB);applyPublic();document.querySelectorAll('#page-admin tbody').forEach(x=>x.replaceChildren());}
@@ -113,7 +133,7 @@ async function submitReturnLoan(e){e.preventDefault();await action(async()=>{awa
 async function receiveReplacement(id){await action(async()=>{const reason=prompt('Ghi nhận kiểm tra sách mới cùng tên/tác giả, tình trạng và ngày nhận:');if(!reason)return;await api('admin/replacements',{itemId:id,reason});await refreshState();});}
 async function recordContact(id){await action(async()=>{const i=liveState.loan_items.find(x=>x.id===id),content=prompt('Nội dung liên hệ/nhắc hạn:');if(!content)return;const result=prompt('Kết quả liên hệ:');if(!result)return;await api('admin/contacts',{loanId:i.loan_id,channel:'Điện thoại / Zalo thủ công',content,result});await refreshState();});}
 async function saveSettingsForm(){await action(async()=>{await api('admin/settings',{libraryName:val('cfgLibraryName'),address:val('cfgAddress'),hotline:val('cfgHotline'),zaloOaId:val('cfgZaloOa'),lamourLoanMonths:num('cfgLamourMonths'),guestLoanMonths:num('cfgGuestMonths'),guestDepositAmount:num('cfgDepositAmount'),lateFeePerDay:num('cfgLateFeePerDay'),techFeeLostBook:num('cfgTechFee'),outOfPrintMultiplier:num('cfgOutPrintMultiplier'),lossLateFeeRule:val('cfgLossRule'),unknownPricePriorityRule:val('cfgUnknownPrice')});await refreshState();showToast('Đã lưu phiên bản chính sách mới. Phiếu cũ giữ chính sách lúc phát hành.');});}
-function renderPrintPreviewSelect(){if(!liveState)return;const sel=document.getElementById('printLoanSelect'),old=sel.value;sel.innerHTML=liveState.print_documents.map(d=>`<option value="${d.id}">${esc(d.code)} (${esc(d.type)})</option>`).join('');if(liveState.print_documents.some(d=>d.id===old))sel.value=old;document.getElementById('printTypeSelect').hidden=true;}
+function renderPrintPreviewSelect(){const sel=document.getElementById('printLoanSelect');if(!liveState||!sel)return;const old=sel.value;sel.innerHTML=liveState.print_documents.map(d=>`<option value="${d.id}">${esc(d.code)} (${esc(d.type)})</option>`).join('');if(liveState.print_documents.some(d=>d.id===old))sel.value=old;document.getElementById('printTypeSelect').hidden=true;}
 function previewLoanInPrintTab(itemId){switchAdminTab('print');const i=liveState.loan_items.find(i=>i.id===itemId),d=liveState.print_documents.filter(d=>d.loan_id===i.loan_id).at(-1);if(d)document.getElementById('printLoanSelect').value=d.id;renderPrintPreview();}
 function loanPaperDate(value) {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value || '');
@@ -160,6 +180,7 @@ function loanPaperMarkup({snapshot, type='BORROW', code, draft=false, pendingDep
 
 function renderPrintPreview(){
   const target=document.getElementById('a4PrintSheet');
+  if (!target) return;
   const selected=liveState?.print_documents.find(entry=>entry.id===val('printLoanSelect'));
   target.textContent=liveState?'Chưa có phiếu được phát hành.':'';
   if (selected) target.innerHTML=loanPaperMarkup(selected);

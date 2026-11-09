@@ -769,3 +769,24 @@ body { background: #e8e4e0; }
   .loan-paper-content { padding: 12mm; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .loan-paper-content h2 { font-size: 24px; }
 }
+
+.studio-action-error { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 10px 12px; background: #fff0f0; color: #9f1616; border: 1px solid #eccaca; border-radius: 8px; }
+#operationError .studio-action-error { margin: 0; padding: 0; border: 0; }
+.studio-action-error button { border: 1px solid currentColor; border-radius: 6px; background: transparent; color: inherit; padding: 5px 8px; cursor: pointer; }
+.studio-reader-loan-links { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.studio-reader-loan-links:empty { display: none; }
+#studioLoanDetailsModal .modal-dialog { width: min(1120px,100%); max-width: none; }
+#studioLoanPrintModal .modal-dialog { width: min(900px,100%); max-width: none; }
+.studio-loan-print-actions { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.studio-loan-print-actions label { min-width: 0; flex: 1 1 240px; margin: 0; }
+#studioLoanPrintSheet { background: #fff; border: 1px solid #ded8d2; }
+@media print {
+  body:has(#studioLoanPrintModal.open) > :not(#studioLoanPrintModal) { display: none !important; }
+  body:has(#studioLoanPrintModal.open) { overflow: visible !important; background: #fff; }
+  #studioLoanPrintModal.open, #studioLoanPrintModal .modal-dialog, #studioLoanPrintModal .modal-body {
+    display: block !important; position: static; width: auto; max-width: none; height: auto;
+    max-height: none; overflow: visible; margin: 0; padding: 0; border: 0; box-shadow: none; background: #fff;
+  }
+  #studioLoanPrintModal .modal-header, .studio-loan-print-actions { display: none !important; }
+  #studioLoanPrintSheet { border: 0; }
+}

@@ -75,7 +75,7 @@ function installStudio() {
   const sidebar = admin.querySelector('.admin-sidebar');
   sidebar.innerHTML = `<a class="studio-brand" href="#/admin/dashboard"><span>L</span><strong>LAMOUR<small>THƯ VIỆN SÁCH NGÀNH SPA</small></strong></a>
     <nav class="sidebar-nav" aria-label="Quản trị"><p class="studio-nav-label">Công việc hằng ngày</p>
-    ${studioNav(['dashboard', 'loans', 'books', 'readers', 'print'])}<p class="studio-nav-label">Quản lý thư viện</p>
+    ${studioNav(['dashboard', 'loans', 'books', 'readers'])}<p class="studio-nav-label">Quản lý thư viện</p>
     ${studioNav(['wallets', 'notes', 'analytics', 'logs', 'settings'])}</nav>
     <div class="studio-account"><div class="studio-avatar">AD</div><strong id="activeAdminName">Quản trị viên</strong>
     <small id="activeAdminRole">Quản trị thư viện</small>
@@ -135,7 +135,7 @@ function installStudio() {
   buildStudioDashboard();
   buildStudioReaders();
   buildStudioLoans();
-  buildStudioPrint();
+  document.getElementById('admin-tab-print')?.remove();
   content.insertAdjacentHTML('beforeend', `<section id="admin-tab-logs" class="admin-tab-pane">
     <section class="studio-card"><header class="studio-panel-heading"><div><h2>Lịch sử thao tác</h2><p class="studio-subtle">10 mục mỗi trang · Mới nhất trước</p></div></header>
     ${studioTable(['Thời gian', 'Hành động', 'Bản ghi', 'Chi tiết'], '', 'studioLogRows')}
@@ -169,6 +169,8 @@ function installStudio() {
   createStudioOverlay('studioEditor', 'Chỉnh sửa');
   createStudioOverlay('studioCalendar', 'Chọn khoảng ngày');
   createStudioOverlay('studioHelpModal', 'Hướng dẫn sử dụng');
+  createStudioOverlay('studioLoanDetailsModal', 'Chi tiết phiếu');
+  createStudioOverlay('studioLoanPrintModal', 'In phiếu / Lưu PDF');
   createStudioOverlay('studioNotificationModal', 'Thông báo');
   createStudioOverlay('studioResetModal', 'Reset dữ liệu thư viện');
   createStudioOverlay('studioOperationsModal', 'Nhập dữ liệu Excel');
@@ -217,6 +219,7 @@ function createStudioOverlay(id, title, child) {
 }
 
 switchAdminTab = function (tab, syncUrl = true) {
+  if (tab === 'print') tab = 'loans';
   if (!studioTitles[tab]) tab = 'dashboard';
   studio.tab = tab;
   document.querySelectorAll('.side-link').forEach(button => {
@@ -270,8 +273,7 @@ function buildStudioDashboard() {
   const reminders = document.getElementById('reminderList').closest('.panel-card');
   pane.innerHTML = `<div class="workspace-shortcuts">
     ${studioButton('+ Lập phiếu mượn','openNewLoanModal()','green')}
-    ${studioButton('Nhận sách trả',"switchAdminTab('loans');clearStudioLoanFilters()",'white')}
-    ${studioButton('In phiếu',"switchAdminTab('print')",'white')}</div>
+    ${studioButton('Nhận sách trả',"switchAdminTab('loans');clearStudioLoanFilters()",'white')}</div>
     <div id="adminKpiGrid" class="studio-kpis"></div>
     <div class="workspace-dashboard">
       <div class="workspace-stack">
@@ -302,6 +304,7 @@ function workspaceOpenLoan(id) {
   document.getElementById('adminLoanSearch').value=loan.code;
   studio.loanId=id;
   switchAdminTab('loans');
+  showStudioLoanDetails(id);
 }
 
 function workspaceCalendarMonth(offset) {
@@ -373,66 +376,6 @@ function renderWorkspaceOverview() {
   }).join('');
   renderWorkspaceCalendar();
 }
-
-function buildStudioPrint() {
-  const pane = document.getElementById('admin-tab-print');
-  const preview = pane.querySelector('.a4-preview-wrapper');
-  const selector = document.getElementById('printLoanSelect');
-  const type = document.getElementById('printTypeSelect');
-  pane.innerHTML = `<div class="studio-print-layout">
-    <section class="studio-card studio-print-controls"><h2>Tìm phiếu</h2>
-    ${studioSearch('studioPrintSearch', 'Mã phiếu, tên hoặc số điện thoại', 'renderStudioPrintChoices(); renderPrintPreview()')}
-    <p id="studioPrintCount" role="status"></p>
-    <label for="printLoanSelect">Chọn phiếu cần in</label><div id="studioPrintSelect"></div>
-    <button type="button" id="studioPrintButton" class="studio-button green" onclick="window.print()" disabled>${studioIcon('print')} In phiếu / Lưu PDF</button>
-    </section><section class="studio-print-preview" aria-label="Xem trước phiếu"></section></div>`;
-  document.getElementById('studioPrintSelect').append(selector, type);
-  pane.querySelector('.studio-print-preview').append(preview);
-}
-
-const studioPrintTypes = {BORROW: 'Phiếu mượn', RETURN: 'Phiếu trả & đối soát', REPLACEMENT: 'Biên nhận sách thay thế', STATEMENT: 'Biên nhận quyết toán'};
-const previousPrintChoices = renderPrintPreviewSelect;
-function renderStudioPrintChoices() {
-  const search = document.getElementById('studioPrintSearch');
-  if (!search) { previousPrintChoices(); return; }
-  const selector = document.getElementById('printLoanSelect');
-  const previous = selector.value;
-  const query = normalizeSearch(search.value).trim();
-  const documents = (liveState?.print_documents || []).filter(document => {
-    const loan = document.snapshot?.loan;
-    const reader = loan?.reader_snapshot;
-    const phone = reader?.phone_display || '';
-    const label = studioPrintTypes[document.type] || document.type;
-    return normalizeSearch([document.code, loan?.code, reader?.full_name, phone, phone.replace(/\D/g, ''), label].join(' ')).includes(query);
-  });
-  selector.replaceChildren();
-  for (const document of documents) {
-    const loan = document.snapshot?.loan;
-    const label = studioPrintTypes[document.type] || document.type;
-    selector.add(new Option([document.code, label, loan?.reader_snapshot?.full_name].filter(Boolean).join(' · '), document.id));
-  }
-  if (documents.some(document => document.id === previous)) selector.value = previous;
-  selector.disabled = !documents.length;
-  document.getElementById('printTypeSelect').hidden = true;
-  document.getElementById('studioPrintButton').disabled = !documents.length;
-  setText('studioPrintCount', documents.length ? `${documents.length} phiếu` : query ? 'Không tìm thấy phiếu phù hợp.' : 'Chưa có phiếu được phát hành.');
-}
-renderPrintPreviewSelect = renderStudioPrintChoices;
-
-const previousPrintPreview = renderPrintPreview;
-renderPrintPreview = function () {
-  previousPrintPreview();
-  if (val('studioPrintSearch').trim() && !val('printLoanSelect')) {
-    setText('a4PrintSheet', 'Thử nhập mã phiếu, tên hoặc số điện thoại khác.');
-  }
-};
-
-const previousLoanPrint = previewLoanInPrintTab;
-previewLoanInPrintTab = function (itemId) {
-  const search = document.getElementById('studioPrintSearch');
-  if (search) search.value = '';
-  previousLoanPrint(itemId);
-};
 
 function buildStudioReaders() {
   document.getElementById('admin-tab-readers').innerHTML = `<div class="studio-toolbar">${studioSearch('adminReaderSearch', 'Tìm độc giả theo tên, mã hoặc số điện thoại', 'renderAdminReaders()')}
@@ -529,7 +472,8 @@ function renderStudioBookDetail() {
     <p class="studio-subtle">Chọn mã cuốn để chỉnh tình trạng, vị trí và trạng thái. Tồn có sẵn tính theo số cuốn ở trạng thái Có sẵn.</p>
     <div class="studio-copy-choices">${copies.map(copy => studioButton(`${esc(copy.code)} <small>${esc(copyLabels[copy.status])}</small>`, `studioCopyStatus('${copy.id}')`, 'white')).join('') || 'Chưa có cuốn nào.'}</div></section>
     <p class="studio-subtle">${book.archived_at ? 'Đã lưu trữ' : book.show_on_web ? 'Đang hiển thị trên website' : 'Đang ẩn trên website'}</p>
-    <div class="studio-detail-actions">${studioButton('Chỉnh sửa', 'editStudioBook()', 'dark-green')}${studioButton(book.show_on_web ? 'Khóa hiển thị' : 'Mở hiển thị', 'toggleStudioBook()', 'yellow')}${studioButton('Xóa sách', 'archiveStudioBook()', 'red')}</div>`;
+    <div class="studio-detail-actions">${!book.archived_at && counts.available>0 ? studioButton('Tạo phiếu mượn', "openStudioLoanForm(null,{bookId:'"+book.id+"'})", 'green') : '<span class="studio-subtle">Hết cuốn có sẵn</span>'}
+    ${studioButton('Chỉnh sửa', 'editStudioBook()', 'dark-green')}${studioButton(book.show_on_web ? 'Khóa hiển thị' : 'Mở hiển thị', 'toggleStudioBook()', 'yellow')}${studioButton('Xóa sách', 'archiveStudioBook()', 'red')}</div>`;
 }
 
 function adjustStudioBookTotal() {
@@ -577,7 +521,9 @@ function renderStudioReaderDetail() {
   const deposits = liveState.deposit_entries.filter(entry => items.some(item => item.id === entry.loan_item_id) && entry.direction === 'INCREASE');
   const depositTimes = liveState.financial_transactions.filter(tx => deposits.some(entry => entry.transaction_id === tx.id)).map(tx => String(tx.occurred_at).slice(0, 10)).sort();
   const initials = reader.full_name.split(/\s+/).slice(-2).map(part => part[0]).join('').toUpperCase();
-  target.innerHTML = `<header class="studio-reader-heading"><h2>${esc(reader.code)} <span class="studio-tag solid">${reader.account_status === 'Hoạt động' ? 'Hoạt động' : 'Tạm khóa'}</span></h2><div class="studio-detail-actions">${studioButton('Chỉnh sửa', 'editStudioReader()', 'dark-green')}${studioButton(reader.account_status === 'Hoạt động' ? 'Khóa khách' : 'Mở khóa', 'toggleStudioReader()', 'yellow')}${studioButton('Xóa khách', 'archiveStudioReader()', 'red')}</div></header>
+  target.innerHTML = `<header class="studio-reader-heading"><h2>${esc(reader.code)} <span class="studio-tag solid">${reader.account_status === 'Hoạt động' ? 'Hoạt động' : 'Tạm khóa'}</span></h2><div class="studio-detail-actions">${reader.account_status==='Hoạt động' ? studioButton('Tạo phiếu mượn',"openStudioLoanForm(null,{readerId:'"+reader.id+"'})",'green') : ''}
+    ${studioButton('Chỉnh sửa', 'editStudioReader()', 'dark-green')}${studioButton(reader.account_status === 'Hoạt động' ? 'Khóa khách' : 'Mở khóa', 'toggleStudioReader()', 'yellow')}${studioButton('Xóa khách', 'archiveStudioReader()', 'red')}</div></header>
+    <div class="studio-reader-loan-links">${liveState.loans.filter(loan=>loan.reader_id===reader.id).map(loan=>studioButton(esc(loan.code),`workspaceOpenLoan('${loan.id}')`,'mini white')).join('')}</div>
     <div class="studio-reader-cards"><section class="studio-card studio-profile"><div class="studio-profile-avatar">${esc(initials)}</div><span class="studio-tag solid">${readerLabels[reader.reader_category]}</span><h2>${esc(reader.full_name)}</h2><p>${esc(reader.email) || 'Chưa có email'}</p><b>${esc(reader.phone_display)}</b></section>
     <section class="studio-card studio-personal"><h3>Thông tin cá nhân</h3><div><small>Địa chỉ</small><p>${esc(reader.address) || 'Chưa cập nhật'}</p></div><div><small>Cơ sở / Đơn vị</small><p>${esc(reader.organization) || 'Chưa cập nhật'}</p></div><div><small>Ghi chú</small><p>${esc(reader.notes) || 'Chưa có ghi chú'}</p></div></section>
     <div class="studio-reader-stats"><section class="studio-card"><h3>Số tiền đang cọc</h3><strong>${formatCurrency(held)}</strong>${held && depositTimes.length ? `<p>Từ ngày ${esc(depositTimes[0])}</p>` : '<p>Hiện không giữ cọc</p>'}</section><section class="studio-card"><h3>Tổng sách đã mượn</h3><strong>${items.length} <small>quyển</small></strong></section></div></div>
@@ -604,7 +550,7 @@ function renderStudioReaderHistory() {
   target.innerHTML = studioTable(['Mã phiếu', 'Cuốn sách', 'Hạn trả', 'Ngày trả', 'Trạng thái'], visible.map(item => {
     const loan = liveState.loans.find(loan => loan.id === item.loan_id);
     const copy = liveState.book_copies.find(copy => copy.id === item.copy_id);
-    return `<tr><td>${esc(loan.code)}</td><td>${esc(copy.code)}<small>${esc(item.title_snapshot.title)}</small></td><td>${item.due_on}</td><td>${item.returned_on || '—'}</td><td>${studioItemStatus(item)}</td></tr>`;
+    return `<tr><td>${studioButton(esc(loan.code),`workspaceOpenLoan('${loan.id}')`,'mini white')}</td><td>${esc(copy.code)}<small>${esc(item.title_snapshot.title)}</small></td><td>${item.due_on}</td><td>${item.returned_on || '—'}</td><td>${studioItemStatus(item)}</td></tr>`;
   }).join('') || studioEmpty('Chưa có sách trong nhóm này.', 5));
 }
 
@@ -629,7 +575,9 @@ function studioLoanDetails(loan, items, copies) {
   }).join('');
   return `<section class="studio-loan-detail"><header><div><h3>Chi tiết phiếu ${esc(loan.code)}</h3><p>Ngày mượn ${esc(loan.borrowed_on)} · ${items.length} cuốn</p></div>
     <div>${loan.status!=='COMPLETED' ? studioButton('Mượn thêm sách', `openStudioLoanForm('${loan.id}')`, 'mini green') : ''}
-    ${items.length ? studioButton('In / xem chứng từ', `previewLoanInPrintTab('${items[0].id}')`, 'mini white') : ''}</div></header>
+    ${studioButton('Thu cọc',`showStudioLoanDeposit('${loan.id}')`,'mini white')}
+    ${liveState.print_documents.some(entry=>entry.loan_id===loan.id) ? studioButton('In phiếu', `openStudioLoanPrint('${loan.id}')`, 'mini white') : ''}</div></header>
+    <p>${esc(loan.reader_snapshot?.full_name || liveState.readers.find(reader=>reader.id===loan.reader_id)?.full_name)} · Cọc đang giữ ${formatCurrency(items.reduce((sum,item)=>sum+itemDeposit(item.id),0))}</p>
     ${studioTable(['Cuốn sách', 'Ngày giao', 'Hạn trả', 'Ngày nhận / Báo mất', 'Cọc đang giữ', 'Trạng thái', 'Thao tác'],body || studioEmpty('Phiếu chưa có cuốn sách.',7))}
     ${studioLoanHistory(loan,items,copies)}</section>`;
 }
@@ -648,9 +596,46 @@ function studioLoanHistory(loan,items,copies) {
 }
 
 function toggleStudioLoan(id) {
-  studio.loanId = studio.loanId === id ? null : id;
-  renderAdminLoans();
-  document.getElementById('studio-loan-button-'+id)?.focus({preventScroll:true});
+  showStudioLoanDetails(id);
+}
+
+function showStudioLoanDetails(id, open = true) {
+  const loan=liveState?.loans.find(loan=>loan.id===id);
+  if (!loan) return;
+  studio.loanId=id;
+  setText('studioLoanDetailsModalTitle','Phiếu '+loan.code);
+  document.getElementById('studioLoanDetailsModalBody').innerHTML=studioLoanDetails(loan,
+    liveState.loan_items.filter(item=>item.loan_id===id),new Map(liveState.book_copies.map(copy=>[copy.id,copy])));
+  if (open) openModal('studioLoanDetailsModal');
+}
+
+function showStudioLoanDeposit(id) {
+  const items=liveState.loan_items.filter(item=>item.loan_id===id);
+  const due=items.reduce((sum,item)=>sum+Number(item.deposit_required_vnd || 0),0);
+  const collected=liveState.financial_transactions.filter(entry=>entry.loan_id===id && entry.type==='COLLECT_DEPOSIT')
+    .reduce((sum,entry)=>sum+Number(entry.amount_vnd),0);
+  const message=due===0 ? 'Phiếu này không yêu cầu tiền cọc.' :
+    collected>=due ? `Phiếu đã ghi nhận thu ${formatCurrency(collected)} khi giao sách. Các khoản hoàn hoặc khấu trừ được xử lý khi trả sách và quyết toán.` :
+    `Đã ghi nhận ${formatCurrency(collected)} trên ${formatCurrency(due)} tiền cọc. Kiểm tra sổ giao dịch trong Ví tiền trước khi xử lý chênh lệch.`;
+  void requestStudioDialog('Thu cọc',message,{confirmLabel:'Đóng',cancelLabel:'Quay lại'});
+}
+
+function openStudioLoanPrint(id) {
+  const documents=liveState.print_documents.filter(entry=>entry.loan_id===id)
+    .sort((a,b)=>String(b.created_at || b.snapshot.printedAt || '').localeCompare(String(a.created_at || a.snapshot.printedAt || '')));
+  if (!documents.length) return;
+  const labels={BORROW:'Phiếu mượn',RETURN:'Phiếu trả',REPLACEMENT:'Biên nhận thay thế',STATEMENT:'Biên nhận quyết toán'};
+  document.getElementById('studioLoanPrintModalBody').innerHTML=`<div class="studio-loan-print-actions">
+    <label>Chứng từ <select id="studioLoanDocumentSelect" onchange="renderStudioLoanDocument()">${documents.map(entry=>`<option value="${esc(entry.id)}">${esc(labels[entry.type] || entry.type)} · ${esc(entry.code)}</option>`).join('')}</select></label>
+    <button type="button" class="studio-button green" onclick="window.print()">In phiếu / Lưu PDF</button></div>
+    <div id="studioLoanPrintSheet"></div>`;
+  renderStudioLoanDocument();
+  openModal('studioLoanPrintModal');
+}
+
+function renderStudioLoanDocument() {
+  const selected=liveState?.print_documents.find(entry=>entry.id===val('studioLoanDocumentSelect') && entry.loan_id===studio.loanId);
+  document.getElementById('studioLoanPrintSheet').innerHTML=selected ? loanPaperMarkup(selected) : '';
 }
 
 renderAdminLoans = function () {
@@ -699,14 +684,13 @@ renderAdminLoans = function () {
   setText('adminLoanResultCount',`${visible.length} phiếu`);
   setText('studioLoanRangeLabel',studio.loanRange ? `Ngày mượn từ ${studio.loanRange[0]} đến ${studio.loanRange[1]}` : 'Đang xem tất cả ngày mượn');
   document.getElementById('adminLoansTableBody').innerHTML = visible.map(({loan,items,reader,received,overdue,status})=>{
-    const expanded = studio.loanId===loan.id;
-    return `<tr class="${expanded ? 'selected' : ''}"><td><b>${esc(loan.code)}</b></td>
+    return `<tr class="${studio.loanId===loan.id ? 'selected' : ''}"><td>${studioButton(esc(loan.code),`toggleStudioLoan('${loan.id}')`,'mini white')}</td>
       <td>${esc(reader.full_name)}<small>${esc(reader.phone_display)}</small></td><td>${received} / ${items.length}</td>
       <td>${esc(loan.borrowed_on)}</td><td>${esc(items.filter(item=>item.resolution_status==='OPEN').map(item=>item.due_on).sort()[0] || loan.due_on)}</td>
       <td><span class="studio-tag ${overdue ? 'overdue' : ''}">${esc(status)}</span></td>
-      <td><button type="button" class="studio-button mini white" id="studio-loan-button-${loan.id}" aria-expanded="${expanded}" onclick="toggleStudioLoan('${loan.id}')">${expanded ? 'Thu gọn' : 'Mở phiếu'}</button></td></tr>
-      ${expanded ? `<tr class="studio-loan-detail-row"><td colspan="7">${studioLoanDetails(loan,items,copies)}</td></tr>` : ''}`;
+      <td>${studioButton('Mở phiếu',`toggleStudioLoan('${loan.id}')`,'mini white')}</td></tr>`;
   }).join('') || studioEmpty('Chưa có phiếu phù hợp với bộ lọc.',7);
+  if (document.getElementById('studioLoanDetailsModal')?.classList.contains('open')) showStudioLoanDetails(studio.loanId,false);
 };
 function clearStudioLoanFilters() {
   studio.loanRange = null;
@@ -793,14 +777,17 @@ function renderStudioNotes() {
 const previousOpenModal = openModal;
 const previousCloseModal = closeModal;
 openModal = function (id) {
-  studio.lastFocus = document.activeElement;
-  previousOpenModal(id);
   const overlay = document.getElementById(id);
+  if (!overlay) return;
+  if (!overlay.classList.contains('open')) overlay.returnFocus = document.activeElement;
+  document.body.append(overlay);
+  previousOpenModal(id);
   overlay?.setAttribute('aria-hidden', 'false');
   document.body.classList.add('studio-modal-open');
   setTimeout(() => overlay?.querySelector('input:not([type=hidden]),select,textarea,button')?.focus(), 0);
 };
 closeModal = function (id) {
+  const overlay=document.getElementById(id);
   if (id === 'studioOperationsModal') document.getElementById('studioOperationsModalBody')?.replaceChildren();
   if (id === 'studioResetModal') {
     clearInterval(studioResetTimer);
@@ -815,7 +802,8 @@ closeModal = function (id) {
     studio.dialogResolve = null;
   }
   if (!document.querySelector('.modal-overlay.open')) document.body.classList.remove('studio-modal-open');
-  if (studio.lastFocus?.isConnected) studio.lastFocus.focus();
+  if (overlay?.returnFocus?.isConnected) overlay.returnFocus.focus();
+  else [...document.querySelectorAll('.modal-overlay.open')].at(-1)?.querySelector('button')?.focus();
 };
 
 let studioResetTimer = null;
@@ -1075,7 +1063,7 @@ function studioHelp() {
     ['Mượn và trả sách', 'Khi cho mượn, chọn độc giả và từng cuốn sách rồi kiểm tra hạn và tiền cọc trước khi xác nhận. Khi nhận trả, tìm mã phiếu rồi chọn Trả / Báo mất trên đúng dòng cuốn sách.'],
     ['Ví tiền', 'Kiểm tra số dư, cọc đang giữ và sổ giao dịch. Mở nhóm thao tác để chuyển ví, thêm ví hoặc xử lý khoản chờ quyết toán.'],
     ['Ghi chú', 'Tạo ghi chú cho công việc nội bộ. Chọn Hoàn thành để chuyển mục sang cột đã làm, hoặc Mở lại nếu cần xử lý tiếp.'],
-    ['In phiếu', 'Tìm theo mã phiếu, tên hoặc số điện thoại độc giả. Chọn tài liệu, kiểm tra bản xem trước rồi bấm In phiếu / Lưu PDF.'],
+    ['In phiếu', 'Vào Mượn và trả sách, mở đúng phiếu rồi chọn In phiếu. Chọn chứng từ và bấm In phiếu / Lưu PDF.'],
     ['Nhật ký và Cài đặt', 'Nhật ký hiển thị các thao tác trong 15 ngày gần nhất. Vào Cài đặt để sửa chính sách, thông tin thư viện hoặc tải bản sao lưu.'],
     ['Thông báo', 'Bấm chuông để xem các mục cần chú ý. Bấm từng mục để đọc chi tiết. Trong Tùy chỉnh, chọn bật hoặc tắt từng loại nhắc, ngày nhắc hằng tuần và số ngày báo trước hạn trả.']
   ];
@@ -1197,7 +1185,8 @@ function renderStudioInbox() {
   }
   body.innerHTML = `<div class="studio-inbox-header"><div><strong>${items.filter(item => !item.read).length} chưa đọc</strong>
     <p class="studio-subtle">Mở từng thông báo để xem chi tiết.</p></div>
-    ${studioButton('Tùy chỉnh', 'editStudioNotifications()', 'white')}</div>
+    <div>${studioInbox && ['backup','books','due'].some(kind=>studioInbox.preferences[kind]) ? studioButton('Tắt mọi nhắc nhở','disableStudioReminders()','white') : ''}
+    ${studioButton('Tùy chỉnh', 'editStudioNotifications()', 'white')}</div></div>
     <p id="studioInboxStatus" role="status">${studioInbox ? '' : 'Đang tải thông báo…'}</p>
     <div class="studio-inbox-list">${items.map((item, index) => `<button type="button" class="studio-inbox-item ${item.read ? '' : 'is-unread'}" onclick="openStudioNotification(${index})">
       <span class="studio-inbox-icon">${studioIcon({backup:'upload', books:'books', due:'calendar'}[item.kind])}</span>
@@ -1210,6 +1199,11 @@ function showStudioInboxList() {
   studioInboxView = 'list';
   renderStudioInbox();
   document.querySelector('#studioNotificationModalBody button')?.focus();
+}
+
+async function disableStudioReminders() {
+  if (!studioInbox) return;
+  await refreshStudioInbox({preferences:{...studioInbox.preferences,backup:false,books:false,due:false}});
 }
 
 async function openStudioNotification(index) {
@@ -1434,10 +1428,13 @@ const studioLoanCopyNotes = new Map();
 
 openNewLoanModal = function () { openStudioLoanForm(); };
 
-function openStudioLoanForm(loanId = null) {
+function openStudioLoanForm(loanId = null, {readerId,bookId} = {}) {
   if (!liveState) return;
   const loan = liveState.loans.find(row=>row.id===loanId);
   if (loanId && (!loan || loan.status==='COMPLETED')) return;
+  const book=bookId && liveState.book_titles.find(book=>book.id===bookId && !book.archived_at);
+  const copy=book && liveState.book_copies.find(copy=>copy.title_id===book.id && copy.status==='READY');
+  if (bookId && !copy) { showToast('Đầu sách không còn cuốn có sẵn.'); return; }
   studioAppendLoanId = loanId;
   studioLoanQuoteRequest++;
   studioLoanCopyNotes.clear();
@@ -1451,9 +1448,13 @@ function openStudioLoanForm(loanId = null) {
   document.getElementById('studioLoanFormHistory').innerHTML = loan
     ? studioLoanHistory(loan,liveState.loan_items.filter(item=>item.loan_id===loan.id),new Map(liveState.book_copies.map(copy=>[copy.id,copy])))
     : '';
-  filterStudioLoanReaders(loan?.reader_id);
+  filterStudioLoanReaders(loan?.reader_id || readerId);
   filterStudioLoanBooks();
   renderStudioLoanCart();
+  if (copy) {
+    document.getElementById('loanBookMatch').value=copy.id;
+    addStudioLoanCopy();
+  }
   void onLoanReaderChange();
 }
 
@@ -1572,15 +1573,14 @@ submitNewLoan = async function (event) {
     const input = loanPayload();
     if (!input.readerId || !input.copyIds.length) throw new Error('Chọn độc giả và thêm ít nhất một cuốn sách.');
     const quote = await api('admin/loans/quote', input);
+    if (quote.overdue && !input.warningAcknowledged) throw new Error('Hãy xác nhận đã xem cảnh báo quá hạn.');
+    if (quote.deposit>0 && (!input.walletId || !input.depositConfirmed)) throw new Error('Chọn ví và xác nhận đã nhận đủ tiền cọc.');
     const confirmed = await requestStudioDialog(input.loanId ? 'Xác nhận giao thêm sách' : 'Phát hành phiếu mượn', `${input.copyIds.length} cuốn · Hạn trả ${quote.dueDate} · Tiền cọc ${formatCurrency(quote.deposit)}. Xác nhận bàn giao và tiền cọc đã nhận theo phiếu.`);
     if (!confirmed) return;
     const loan = await api('admin/loans/issue', {...input, quoteToken: quote.quoteToken});
     closeModal('newLoanModal');
     await refreshState();
-    studio.loanId = loan.id;
-    clearStudioLoanFilters();
-    document.getElementById('adminLoanSearch').value = loan.code;
-    switchAdminTab('loans');
+    workspaceOpenLoan(loan.id);
     showToast((input.loanId ? 'Đã giao thêm sách trên phiếu ' : 'Đã phát hành phiếu ') + loan.code + '.');
   }, event.target);
 };
@@ -1620,12 +1620,6 @@ clearPrivate = function () {
   for (const id of ['studioBookDetail', 'studioReaderDetail', 'studioNoteBoard', 'studioWalletOverview', 'studioanalytics', 'studioTopReaders', 'studioRecentLogs']) document.getElementById(id)?.replaceChildren();
   const noteSearch = document.getElementById('studioNoteSearch');
   if (noteSearch) noteSearch.value = '';
-  const printSearch = document.getElementById('studioPrintSearch');
-  if (printSearch) {
-    printSearch.value = '';
-    renderStudioPrintChoices();
-    renderPrintPreview();
-  }
   studio.bookId = null;
   studio.readerId = null;
   document.querySelectorAll('.modal-overlay.open').forEach(overlay => closeModal(overlay.id));

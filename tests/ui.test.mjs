@@ -49,22 +49,7 @@ test('authenticated empty system renders every admin tab without sample records 
  assert.equal(errors.length,0,errors.map(e=>e.message).join('\n'));assert.ok(!w.document.getElementById('adminReadersTableBody').textContent.includes('Nguyễn Thị Thanh Hương'));
  const loan = {id:'loan-1',code:'PM001',borrowed_on:'2026-11-01',due_on:'2026-12-01',reader_snapshot:{full_name:'Nguyễn An',phone_display:'090 123 4567'}};
  state.print_documents.push({id:'document-1',code:'PM001-BORROW-1234',loan_id:loan.id,type:'BORROW',snapshot:{loan,settings:state.settings,items:[],transactions:[]}});
- w.switchAdminTab('print');
- const search = w.document.getElementById('studioPrintSearch');
- const printButton = w.document.getElementById('studioPrintButton');
- for (const query of ['PM001', 'nguyen an', '0901234567']) {
-   search.value = query;
-   w.renderStudioPrintChoices();
-   w.renderPrintPreview();
-   assert.equal(printButton.disabled, false);
-   assert.match(w.document.getElementById('a4PrintSheet').textContent, /Nguyễn An/);
- }
- search.value = 'PM999';
- w.renderStudioPrintChoices();
- w.renderPrintPreview();
- assert.equal(printButton.disabled, true);
- assert.match(w.document.getElementById('studioPrintCount').textContent, /Không tìm thấy/);
- assert.doesNotMatch(w.document.getElementById('a4PrintSheet').textContent, /Nguyễn An/);
+ assert.equal(w.document.getElementById('admin-tab-print'),null);
  await w.refreshStudioInbox();
  assert.ok(w.document.getElementById('studioBell').classList.contains('has-unread'));
  w.studioNotifications();
@@ -99,7 +84,11 @@ test('authenticated empty system renders every admin tab without sample records 
  assert.equal(loanRows.rows.length,1);
  assert.match(loanRows.rows[0].textContent,/1 \/ 2[\s\S]*Trả một phần/);
  w.toggleStudioLoan(loan.id);
- const detail=loanRows.querySelector('.studio-loan-detail');
+ const detail=w.document.querySelector('#studioLoanDetailsModal.open .studio-loan-detail');
+ assert.equal(loanRows.rows.length,1);
+ w.openStudioLoanPrint(loan.id);
+ assert.match(w.document.querySelector('#studioLoanPrintModal.open #studioLoanPrintSheet').textContent,/Nguyễn An/);
+ w.closeModal('studioLoanPrintModal');
  assert.match(detail.textContent,/Sách đã thu[\s\S]*2026-11-06/);
  assert.match(detail.textContent,/Sách chưa thu[\s\S]*Trả \/ Báo mất/);
  state.readers.push({id:'reader-preview',code:'DG009',full_name:'Độc giả xem trước',reader_category:'INTERNAL'});
@@ -116,5 +105,10 @@ test('authenticated empty system renders every admin tab without sample records 
  assert.match(loanPreview.textContent,/DS003-001[\s\S]*Sách 3/);
  w.removeStudioLoanCopy('copy-preview');
  assert.doesNotMatch(loanPreview.textContent,/DS003-001/);
+ w.openStudioLoanForm(null,{readerId:'reader-preview'});
+ assert.equal(w.document.getElementById('loanReaderSelect').value,'reader-preview');
+ w.openStudioLoanForm(null,{bookId:'book-2'});
+ assert.equal(w.document.getElementById('loanReaderSelect').value,'');
+ assert.match(loanPreview.textContent,/DS003-001/);
  dom.window.close();
 });
