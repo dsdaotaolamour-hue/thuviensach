@@ -6,6 +6,7 @@ import {PGlite} from '@electric-sql/pglite';
 import ExcelJS from 'exceljs';
 import {addMonths,phone,settlement} from '../server/domain.mjs';
 import * as svc from '../server/service.mjs';
+import {notificationInbox} from '../server/notifications.mjs';
 import {validateImport,commitImport,exportBooks,inspectWorkbook} from '../server/excel.mjs';
 const actor='00000000-0000-0000-0000-000000000001';
 async function fixture(){
@@ -54,6 +55,25 @@ test('audit retention protects recent history and paginates ten records at a tim
     const expired = await svc.rows(db, "delete from library.audit_logs where occurred_at <= now() - interval '15 days' returning id");
     assert.equal(expired.length, 1);
     assert.equal((await svc.auditPage(db, 3)).page, 2);
+  } finally { await db.close(); }
+});
+test('notification inbox persists individual reads and preferences without duplicates', async () => {
+  const db = await fixture();
+  try {
+    const {p} = await seed(db);
+    await tx(db, () => svc.issueLoan(db, actor, p, randomUUID()));
+    const sync = input => tx(db, () => notificationInbox(db, actor, input));
+    const initial = await sync();
+    assert.equal(initial.items.filter(item => item.kind === 'due').length, 2);
+    const backup = initial.items.find(item => item.kind === 'backup');
+    assert.ok(backup && !backup.read);
+    const opened = await sync({readId: backup.id});
+    assert.deepEqual(opened.items.filter(item => item.read).map(item => item.id), [backup.id]);
+    assert.deepEqual(await sync(), opened);
+    const preferences = {...initial.preferences, backup: false, dueDays: 14};
+    const saved = await sync({preferences});
+    assert.ok(!saved.items.some(item => item.kind === 'backup'));
+    assert.deepEqual((await sync()).preferences, preferences);
   } finally { await db.close(); }
 });
 test('multi-copy issuance is atomic, idempotent and prevents duplicate checkout',async()=>{

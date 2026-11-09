@@ -5,6 +5,7 @@ import * as svc from './service.mjs';
 import {appOrigin,requireAdmin,login,sessionCookies,cookies,authFetch,reauthenticate} from './auth.mjs';
 import {validateImport,commitImport,exportBooks} from './excel.mjs';
 import {editTitle,editReader,saveNote} from './admin-edit.mjs';
+import {notificationInbox} from './notifications.mjs';
 const json=(data,status=200)=>Response.json({data},{status,headers:{'Cache-Control':'no-store'}});
 export async function handle(request,segments,provider=null) {
   const path=segments.join('/'),method=request.method,requestId=randomUUID(); let admin;
@@ -42,6 +43,7 @@ export async function handle(request,segments,provider=null) {
     admin=await requireAdmin(request,db);
     let response;
     if(path==='auth/session'&&method==='GET') response=json({email:admin.email});
+    else if(path==='admin/notifications'&&method==='POST') response=json(await transaction(c=>notificationInbox(c,admin.id,p),db));
     else if(path==='admin/state'&&method==='GET') response=json(await transaction(async c=>{await c.query('set transaction isolation level repeatable read read only');return svc.state(c);},db));
     else if(path==='admin/reminders'&&method==='GET') response=json(await svc.reminders(db,admin.id));
     else if(path==='admin/audit-logs'&&method==='GET') {

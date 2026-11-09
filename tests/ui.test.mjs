@@ -38,7 +38,10 @@ test('authenticated empty system renders every admin tab without sample records 
  const w=dom.window;w.structuredClone=structuredClone;w.scrollTo=()=>{};w.CSS={escape:v=>v};
  const state={today:'2026-11-05',settings:{libraryName:'Thư viện',address:'',hotline:'',zaloOaId:'',termsOnPrint:''},policy:{company_term_months:12,walkin_term_months:3,walkin_deposit_vnd:500000,late_fee_vnd_per_day:5000,replacement_technical_fee_vnd:20000,out_of_print_multiplier:3}};
  for(const n of ['book_titles','book_copies','readers','loans','loan_items','wallets','financial_transactions','cash_entries','deposit_entries','charges','charge_allocations','collection_contacts','print_documents','content_links','reminder_events','book_categories','audit_logs'])state[n]=[];
- w.fetch=async url=>({ok:true,status:200,json:async()=>({data:String(url).endsWith('public/books')?[]:String(url).endsWith('public/content')?{settings:state.settings,links:[],sections:[]}:String(url).endsWith('auth/session')?{email:'admin@example.test'}:state})});
+ w.fetch=async (url, options)=>({ok:true,status:200,json:async()=>({data:String(url).endsWith('admin/notifications')?{
+   preferences:{backup:true,books:true,due:true,backupDay:1,booksDay:5,dueDays:7},
+   items:[{id:'backup:sample',kind:'backup',title:'Sao lưu thư viện',detail:'Tải bản sao lưu.',date:'2026-11-02',read:Boolean(JSON.parse(options.body).readId)}]
+ }:String(url).endsWith('public/books')?[]:String(url).endsWith('public/content')?{settings:state.settings,links:[],sections:[]}:String(url).endsWith('auth/session')?{email:'admin@example.test'}:state})});
  vm.runInContext(await readFile('assets/js/app.js','utf8'),dom.getInternalVMContext());vm.runInContext(await readFile('assets/js/live.js','utf8'),dom.getInternalVMContext());vm.runInContext(await readFile('assets/js/admin-studio.js','utf8'),dom.getInternalVMContext());await w.liveInitialize();
  assert.ok(w.document.getElementById('page-admin').classList.contains('active'));
  for(const tab of ['dashboard','books','loans','readers','wallets','print','settings'])w.switchAdminTab(tab);
@@ -62,5 +65,14 @@ test('authenticated empty system renders every admin tab without sample records 
  assert.equal(printButton.disabled, true);
  assert.match(w.document.getElementById('studioPrintCount').textContent, /Không tìm thấy/);
  assert.doesNotMatch(w.document.getElementById('a4PrintSheet').textContent, /Nguyễn An/);
+ await w.refreshStudioInbox();
+ assert.ok(w.document.getElementById('studioBell').classList.contains('has-unread'));
+ w.studioNotifications();
+ assert.ok(w.document.getElementById('studioBell').classList.contains('has-unread'));
+ await w.openStudioNotification(0);
+ assert.match(w.document.getElementById('studioNotificationModalBody').textContent, /Tải bản sao lưu/);
+ assert.ok(!w.document.getElementById('studioBell').classList.contains('has-unread'));
+ w.studioHelp();
+ assert.ok(w.document.querySelector('#studioHelpModal details summary'));
  dom.window.close();
 });

@@ -84,7 +84,7 @@ function installStudio() {
   admin.querySelector('.admin-topbar').innerHTML = `<button class="admin-menu-toggle" aria-label="Mở menu" onclick="toggleAdminSidebar()">☰</button>
     <div class="studio-feature-search">${studioSearch('studioFeatureSearch', 'Tìm kiếm tính năng', 'searchStudioFeatures()')}<div id="studioSearchResults" hidden></div></div>
     <div class="studio-top-icons"><button aria-label="Hướng dẫn" onclick="studioHelp()">${studioIcon('help')}</button>
-    <button aria-label="Thông báo nhắc hạn" onclick="studioNotifications()">${studioIcon('bell')}<i id="studioAlertCount" hidden></i></button>
+    <button id="studioBell" aria-label="Thông báo" onclick="studioNotifications()">${studioIcon('bell')}<i id="studioAlertCount" hidden></i></button>
     <button aria-label="Tài khoản quản trị" onclick="switchAdminTab('settings')" class="studio-avatar">AD</button></div>`;
 
   const content = admin.querySelector('.admin-content');
@@ -166,6 +166,11 @@ function installStudio() {
   createStudioOverlay('studioDialog', 'Thông báo');
   createStudioOverlay('studioEditor', 'Chỉnh sửa');
   createStudioOverlay('studioCalendar', 'Chọn khoảng ngày');
+  createStudioOverlay('studioHelpModal', 'Hướng dẫn sử dụng');
+  createStudioOverlay('studioNotificationModal', 'Thông báo');
+  window.setInterval(() => {
+    if (liveState && !document.hidden) void refreshStudioInbox();
+  }, 60000);
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape') {
       const open = [...document.querySelectorAll('.modal-overlay.open')].at(-1);
@@ -530,10 +535,6 @@ renderAdminDashboard = function () {
   const top = [...liveState.readers].map(reader => ({reader, count: readerItems(reader.id).length})).filter(item => item.count).sort((a, b) => b.count - a.count).slice(0, 5);
   document.getElementById('studioTopReaders').innerHTML = studioTable(['Mã', 'Tên khách', 'Sách đã mượn', 'Loại'], top.map(({reader, count}) => `<tr><td>${esc(reader.code)}</td><td><button class="studio-link" onclick="studio.readerId='${reader.id}';switchAdminTab('readers')">${esc(reader.full_name)}</button></td><td>${count} cuốn</td><td>${readerLabels[reader.reader_category]}</td></tr>`).join('') || studioEmpty('Chưa có lịch sử mượn sách.', 4));
   document.getElementById('studioRecentLogs').innerHTML = liveState.audit_logs.slice(0, 5).map(log => `<div class="studio-log"><span></span><div><b>${esc(log.action)}</b><small>${esc(log.target_table)} · ${new Date(log.occurred_at).toLocaleString('vi-VN')}</small></div></div>`).join('') || '<p class="studio-subtle">Chưa có nhật ký.</p>';
-  const count = liveState.loan_items.filter(item => item.resolution_status === 'OPEN' && addMonthsToDateStr(item.due_on, -1) <= liveState.today).length;
-  const badge = document.getElementById('studioAlertCount');
-  badge.hidden = !count;
-  badge.textContent = count;
 };
 
 function renderStudioExtras() {
@@ -565,7 +566,11 @@ function renderStudioWalletOverview() {
 }
 
 const previousRenderExtra = renderExtra;
-renderExtra = function () { previousRenderExtra(); renderStudioExtras(); };
+renderExtra = function () {
+  previousRenderExtra();
+  renderStudioExtras();
+  if (liveState) void refreshStudioInbox();
+};
 
 function renderStudioAnalytics() {
   const owned = liveState.book_copies.filter(copy => !['LOST', 'RETIRED'].includes(copy.status)).length;
@@ -783,15 +788,150 @@ confirmImport = async function () {
 };
 
 function studioHelp() {
-  requestStudioDialog('Hướng dẫn sử dụng', 'Đầu sách: chọn Thao tác để xem chi tiết. Độc giả: chọn hồ sơ để tra lịch sử và tiền cọc. Phiếu: mỗi cuốn có thao tác trả, báo mất hoặc quyết toán riêng. Xuất dữ liệu lấy dữ liệu của màn hình đang mở.', {confirmLabel: 'Đã hiểu', cancelLabel: 'Đóng'});
+  const sections = [
+    ['Website công khai', 'Vào Kho sách để tìm theo tên, tác giả hoặc chuyên mục. Mở một cuốn để xem tình trạng và gửi yêu cầu mượn qua Zalo. Nội quy & Quy trình giải thích điều kiện mượn, tiền cọc và thời hạn trả.'],
+    ['ISOV và Kho dữ liệu online', 'Dùng menu trang chủ để xem thông tin chương trình ISOV hoặc mở các thư mục tài nguyên. Một số tài liệu cần quyền truy cập từ đơn vị quản lý.'],
+    ['Tổng quan và Thống kê', 'Xem số sách, độc giả, phiếu quá hạn và tiền cọc đang giữ. Dùng các nút đầu trang để cho mượn, nhận sách trả hoặc in phiếu.'],
+    ['Kho sách', 'Tìm theo mã, tên hoặc tác giả. Chọn một dòng để xem chi tiết đầu sách. Mục Cập nhật data sách cho phép kiểm tra file Excel trước khi nhập.'],
+    ['Độc giả', 'Tìm hồ sơ theo tên, mã hoặc số điện thoại. Mở hồ sơ để xem các lần mượn, tiền cọc và lịch sử giao dịch.'],
+    ['Mượn và trả sách', 'Khi cho mượn, chọn độc giả và từng cuốn sách rồi kiểm tra hạn và tiền cọc trước khi xác nhận. Khi nhận trả, tìm mã phiếu rồi chọn Trả / Báo mất trên đúng dòng cuốn sách.'],
+    ['Ví tiền', 'Kiểm tra số dư, cọc đang giữ và sổ giao dịch. Mở nhóm thao tác để chuyển ví, thêm ví hoặc xử lý khoản chờ quyết toán.'],
+    ['Ghi chú', 'Tạo ghi chú cho công việc nội bộ. Chọn Hoàn thành để chuyển mục sang cột đã làm, hoặc Mở lại nếu cần xử lý tiếp.'],
+    ['In phiếu', 'Tìm theo mã phiếu, tên hoặc số điện thoại độc giả. Chọn tài liệu, kiểm tra bản xem trước rồi bấm In phiếu / Lưu PDF.'],
+    ['Nhật ký và Cài đặt', 'Nhật ký hiển thị các thao tác trong 15 ngày gần nhất. Vào Cài đặt để sửa chính sách, thông tin thư viện hoặc tải bản sao lưu.'],
+    ['Thông báo', 'Bấm chuông để xem các mục cần chú ý. Bấm từng mục để đọc chi tiết. Trong Tùy chỉnh, chọn bật hoặc tắt từng loại nhắc, ngày nhắc hằng tuần và số ngày báo trước hạn trả.']
+  ];
+  document.getElementById('studioHelpModalBody').innerHTML = `<p class="studio-subtle">Chọn tiêu đề để mở phần bạn cần.</p><div class="studio-guide-list">${sections.map(([title, detail]) =>
+    `<details><summary>${esc(title)}</summary><p>${esc(detail)}</p></details>`).join('')}</div>`;
+  openModal('studioHelpModal');
 }
 
-async function studioNotifications() {
-  switchAdminTab('dashboard');
-  const details = document.querySelector('.studio-reminder-details');
-  details.open = true;
-  await loadReminders();
-  details.scrollIntoView?.({behavior: 'smooth', block: 'start'});
+let studioInbox = null;
+let studioInboxView = 'list';
+let studioInboxDetail = null;
+let studioInboxQueue = Promise.resolve();
+let studioInboxSession = 0;
+
+function updateStudioBell() {
+  const count = studioInbox?.items.filter(item => !item.read).length || 0;
+  const badge = document.getElementById('studioAlertCount');
+  badge.hidden = !count;
+  badge.textContent = count > 99 ? '99+' : count;
+  const bell = document.getElementById('studioBell');
+  bell.classList.toggle('has-unread', count > 0);
+  bell.setAttribute('aria-label', count ? `Thông báo, ${count} chưa đọc` : 'Thông báo');
+}
+
+function refreshStudioInbox(input = {}) {
+  const session = studioInboxSession;
+  const run = async () => {
+    if (!liveState || session !== studioInboxSession) return false;
+    try {
+      const result = await api('admin/notifications', input);
+      if (!liveState || session !== studioInboxSession) return false;
+      if (JSON.stringify(result) === JSON.stringify(studioInbox)) return true;
+      studioInbox = result;
+      updateStudioBell();
+      if (studioInboxView === 'list' && document.getElementById('studioNotificationModal').classList.contains('open')) renderStudioInbox();
+      return true;
+    } catch {
+      if (session === studioInboxSession) setText('studioInboxStatus', 'Không kết nối được. Vui lòng thử lại.');
+      return false;
+    }
+  };
+  studioInboxQueue = studioInboxQueue.then(run);
+  return studioInboxQueue;
+}
+
+function studioNotifications() {
+  studioInboxView = 'list';
+  studioInboxDetail = null;
+  renderStudioInbox();
+  openModal('studioNotificationModal');
+  void refreshStudioInbox();
+}
+
+const studioNotificationLabels = {backup:'Sao lưu hằng tuần', books:'Cập nhật sách hằng tuần', due:'Gần đến hạn trả sách'};
+
+function renderStudioInbox() {
+  const body = document.getElementById('studioNotificationModalBody');
+  const items = studioInbox?.items || [];
+  if (studioInboxView === 'detail' && studioInboxDetail) {
+    const item = studioInboxDetail;
+    const target = {backup:'settings', books:'books', due:'loans'}[item.kind];
+    const label = {backup:'Mở Cài đặt', books:'Mở Kho sách', due:'Xem phiếu mượn'}[item.kind];
+    body.innerHTML = `<div class="studio-inbox-detail">${studioButton('← Danh sách', 'showStudioInboxList()', 'text')}
+      <span class="studio-tag">${studioNotificationLabels[item.kind]}</span><h3>${esc(item.title)}</h3>
+      <p>${esc(item.detail)}</p>${studioButton(label, `followStudioNotification('${target}')`, 'green')}</div><p id="studioInboxStatus" role="status"></p>`;
+    return;
+  }
+  body.innerHTML = `<div class="studio-inbox-header"><div><strong>${items.filter(item => !item.read).length} chưa đọc</strong>
+    <p class="studio-subtle">Mở từng thông báo để xem chi tiết.</p></div>
+    ${studioButton('Tùy chỉnh', 'editStudioNotifications()', 'white')}</div>
+    <p id="studioInboxStatus" role="status">${studioInbox ? '' : 'Đang tải thông báo…'}</p>
+    <div class="studio-inbox-list">${items.map((item, index) => `<button type="button" class="studio-inbox-item ${item.read ? '' : 'is-unread'}" onclick="openStudioNotification(${index})">
+      <span class="studio-inbox-icon">${studioIcon({backup:'upload', books:'books', due:'calendar'}[item.kind])}</span>
+      <span><small>${studioNotificationLabels[item.kind]} · ${esc(item.date.split('-').reverse().join('/'))}</small>
+      <strong>${esc(item.title)}</strong></span><span class="studio-inbox-state">${item.read ? 'Đã đọc' : 'Chưa đọc'}</span>
+    </button>`).join('') || (studioInbox ? '<p class="studio-empty">Bạn chưa có thông báo.</p>' : '')}</div>`;
+}
+
+function showStudioInboxList() {
+  studioInboxView = 'list';
+  renderStudioInbox();
+  document.querySelector('#studioNotificationModalBody button')?.focus();
+}
+
+async function openStudioNotification(index) {
+  const item = studioInbox?.items[index];
+  if (!item) return;
+  studioInboxView = 'detail';
+  studioInboxDetail = item;
+  renderStudioInbox();
+  document.querySelector('#studioNotificationModalBody button')?.focus();
+  if (!item.read) await refreshStudioInbox({readId: item.id});
+}
+
+function followStudioNotification(tab) {
+  const item = studioInboxDetail;
+  closeModal('studioNotificationModal');
+  switchAdminTab(tab);
+  if (tab === 'loans' && item?.loanCode) {
+    clearLoanFilters();
+    document.getElementById('adminLoanSearch').value = item.loanCode;
+    renderAdminLoans();
+  }
+}
+
+function editStudioNotifications() {
+  if (!studioInbox) { void refreshStudioInbox(); return; }
+  studioInboxView = 'settings';
+  const preferences = studioInbox.preferences;
+  const weekdays = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+  document.getElementById('studioNotificationModalBody').innerHTML = `<form class="studio-notification-form" onsubmit="saveStudioNotifications(event)">
+    ${Object.entries(studioNotificationLabels).map(([kind, title]) => `<fieldset><legend>${title}</legend>
+      <label class="studio-notification-toggle"><input type="checkbox" name="${kind}" ${preferences[kind] ? 'checked' : ''}> Bật thông báo</label>
+      ${kind === 'due' ? `<label>Nhắc trước hạn (ngày)<input type="number" name="dueDays" min="1" max="30" value="${preferences.dueDays}" required></label>`
+        : `<label>Ngày nhắc<select name="${kind}Day">${weekdays.map((day, index) => `<option value="${index}" ${index === preferences[kind + 'Day'] ? 'selected' : ''}>${day}</option>`).join('')}</select></label>`}
+    </fieldset>`).join('')}
+    <p id="studioInboxStatus" role="status"></p>
+    <div class="studio-modal-actions">${studioButton('Quay lại', 'showStudioInboxList()', 'white')}<button type="submit" class="studio-button green">Lưu tùy chỉnh</button></div></form>`;
+  document.querySelector('#studioNotificationModalBody input')?.focus();
+}
+
+async function saveStudioNotifications(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector('[type=submit]');
+  button.disabled = true;
+  const data = new FormData(form);
+  const preferences = {
+    backup: data.has('backup'), books: data.has('books'), due: data.has('due'),
+    backupDay: Number(data.get('backupDay')), booksDay: Number(data.get('booksDay')), dueDays: Number(data.get('dueDays'))
+  };
+  const saved = await refreshStudioInbox({preferences});
+  button.disabled = false;
+  if (saved && form.isConnected) showStudioInboxList();
 }
 
 function searchStudioFeatures() {
@@ -988,6 +1128,11 @@ routeHash = function () {
 
 const previousClearPrivate = clearPrivate;
 clearPrivate = function () {
+  studioInboxSession++;
+  studioInbox = studioInboxDetail = null;
+  studioInboxView = 'list';
+  document.getElementById('studioNotificationModalBody')?.replaceChildren();
+  if (document.getElementById('studioBell')) updateStudioBell();
   studioLogRequest++;
   previousClearPrivate();
   for (const id of ['studioBookDetail', 'studioReaderDetail', 'studioNoteBoard', 'studioWalletOverview', 'studioanalytics', 'studioTopReaders', 'studioRecentLogs']) document.getElementById(id)?.replaceChildren();
