@@ -1508,6 +1508,35 @@ function renderStudioLoanCart() {
     ${studioButton('Bỏ',`removeStudioLoanCopy('${option.value}')`,'mini white')}</div>`).join('');
 }
 
+function renderStudioLoanPreview() {
+  const paper=document.getElementById('studioLoanPaper');
+  if (!paper || !liveState) return;
+  const input=loanPayload();
+  const original=liveState.loans.find(loan=>loan.id===input.loanId);
+  const reader=original?.reader_snapshot || liveState.readers.find(reader=>reader.id===input.readerId);
+  const copies=new Map(liveState.book_copies.map(copy=>[copy.id,copy]));
+  const titles=new Map(liveState.book_titles.map(title=>[title.id,title]));
+  const deposit=val('loanDepositInput')==='' ? null : Number(val('loanDepositInput'));
+  const loan=original || {reader_snapshot:reader,borrowed_on:input.borrowDate,due_on:val('loanDueDate'),created_at:liveState.today};
+  const items=original ? liveState.loan_items.filter(item=>item.loan_id===original.id)
+    .map(item=>({...item,copy_code:copies.get(item.copy_id)?.code})) : [];
+  for (const id of input.copyIds) {
+    const copy=copies.get(id);
+    if (!copy) continue;
+    items.push({
+      copy_code:copy.code,title_snapshot:titles.get(copy.title_id),
+      condition_out_note:input.copyNotes[id],checkout_on:input.borrowDate,due_on:val('loanDueDate'),
+      deposit_required_vnd:deposit===null ? null : deposit/input.copyIds.length
+    });
+  }
+  const transactions=original ? liveState.financial_transactions.filter(entry=>entry.loan_id===original.id) : [];
+  paper.innerHTML=loanPaperMarkup({
+    snapshot:{loan,items,settings:liveState.settings,transactions},
+    draft:true,pendingDeposit:deposit,
+    walletName:deposit>0 ? liveState.wallets.find(wallet=>wallet.id===input.walletId)?.display_name : ''
+  });
+}
+
 loanPayload = function () {
   return {...baseLoanPayload(),loanId:studioAppendLoanId,copyNotes:Object.fromEntries(studioLoanCopyNotes)};
 };
@@ -1519,6 +1548,7 @@ onLoanReaderChange = async function () {
   document.getElementById('loanDepositInput').value='';
   document.getElementById('loanDepositConfirmed').checked=false;
   document.getElementById('loanWarningAck').checked=false;
+  renderStudioLoanPreview();
   if (!input.readerId || !input.copyIds.length || !input.borrowDate) {
     setText('loanWarnings','Chọn độc giả, ngày mượn và thêm sách để tính cọc.');
     return;
@@ -1529,6 +1559,7 @@ onLoanReaderChange = async function () {
     if (request!==studioLoanQuoteRequest) return;
     document.getElementById('loanDueDate').value=quote.dueDate;
     document.getElementById('loanDepositInput').value=quote.deposit;
+    renderStudioLoanPreview();
     setText('loanWarnings',quote.overdue ? `Độc giả có ${quote.overdue} cuốn quá hạn. Xác nhận đã xem cảnh báo để tiếp tục.` : 'Đã tính theo nhóm độc giả và chính sách hiện hành.');
   } catch (error) {
     if (request===studioLoanQuoteRequest) setText('loanWarnings',error.message);

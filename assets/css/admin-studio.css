@@ -732,3 +732,40 @@ body { background: #e8e4e0; }
 @media print {
   .lamour-workspace.active { width: 100%; margin: 0; border: 0; box-shadow: none; }
 }
+
+/* Shared document layout for the live composer and the issued PDF. */
+#newLoanModal .modal-dialog { width: min(1450px, 100%); max-width: none; }
+.studio-loan-composer { display: grid; grid-template-columns: minmax(0, .88fr) minmax(0, 1.12fr); align-items: start; gap: clamp(16px, 3vw, 44px); }
+.studio-loan-composer form { min-width: 0; padding: 4px 0 14px; }
+.studio-loan-paper-wrap { min-width: 0; }
+.studio-loan-paper-caption { font-size: 11px; font-weight: 700; letter-spacing: .08em; color: #655b54; margin: 0 0 8px; }
+.loan-paper, .a4-sheet:has(.loan-paper-content) { background: white; padding: 0; }
+.loan-paper { border: 1px solid #ded8d2; box-shadow: 0 3px 12px #3429201a; min-height: 680px; }
+.loan-paper-content { padding: clamp(18px, 3vw, 38px); color: #181818; line-height: 1.45; font-size: 12px; }
+.loan-paper-content h2 { font-family: inherit; font-size: clamp(19px, 2.4vw, 32px); line-height: 1.12; color: #151515; margin: 4px 0 12px; }
+.loan-paper-content h3 { text-transform: uppercase; font-size: 13px; margin: 0 0 9px; color: #161616; }
+.loan-paper-brand { color: #545b4e; font-weight: 700; }
+.loan-paper-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px 12px; }
+.loan-paper-content header { border-bottom: 1px solid #232323; padding-bottom: 12px; }
+.loan-paper-content section { margin-top: 18px; }
+.loan-paper-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px 14px; margin: 0; }
+.loan-paper-fields > div { display: grid; grid-template-columns: minmax(70px,auto) 1fr; gap: 5px; }
+.loan-paper-fields dt { font-weight: 650; }
+.loan-paper-fields dd { margin: 0; overflow-wrap: anywhere; }
+.loan-paper-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
+.loan-paper-table th, .loan-paper-table td { padding: 7px 5px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.loan-paper-table th { background: #d9e6ca; }
+.loan-paper-table td { background: #f4f7ef; border-bottom: 1px solid #e1e8d9; }
+.loan-paper-table th:nth-child(2) { width: 27%; }
+.loan-paper-terms { margin-top: 14px; color: #4f544a; }
+.loan-paper-content .print-signatures { margin-top: 30px; break-inside: avoid; }
+@media (max-width: 760px) {
+  .studio-loan-composer { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 420px) {
+  .loan-paper-fields { grid-template-columns: 1fr; }
+}
+@media print {
+  .loan-paper-content { padding: 12mm; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .loan-paper-content h2 { font-size: 24px; }
+}

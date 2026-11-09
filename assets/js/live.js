@@ -115,12 +115,57 @@ async function recordContact(id){await action(async()=>{const i=liveState.loan_i
 async function saveSettingsForm(){await action(async()=>{await api('admin/settings',{libraryName:val('cfgLibraryName'),address:val('cfgAddress'),hotline:val('cfgHotline'),zaloOaId:val('cfgZaloOa'),lamourLoanMonths:num('cfgLamourMonths'),guestLoanMonths:num('cfgGuestMonths'),guestDepositAmount:num('cfgDepositAmount'),lateFeePerDay:num('cfgLateFeePerDay'),techFeeLostBook:num('cfgTechFee'),outOfPrintMultiplier:num('cfgOutPrintMultiplier'),lossLateFeeRule:val('cfgLossRule'),unknownPricePriorityRule:val('cfgUnknownPrice')});await refreshState();showToast('Đã lưu phiên bản chính sách mới. Phiếu cũ giữ chính sách lúc phát hành.');});}
 function renderPrintPreviewSelect(){if(!liveState)return;const sel=document.getElementById('printLoanSelect'),old=sel.value;sel.innerHTML=liveState.print_documents.map(d=>`<option value="${d.id}">${esc(d.code)} (${esc(d.type)})</option>`).join('');if(liveState.print_documents.some(d=>d.id===old))sel.value=old;document.getElementById('printTypeSelect').hidden=true;}
 function previewLoanInPrintTab(itemId){switchAdminTab('print');const i=liveState.loan_items.find(i=>i.id===itemId),d=liveState.print_documents.filter(d=>d.loan_id===i.loan_id).at(-1);if(d)document.getElementById('printLoanSelect').value=d.id;renderPrintPreview();}
-function renderPrintPreview(){
-  const target=document.getElementById('a4PrintSheet');if(!liveState){target.textContent='';return;}
-  const d=liveState.print_documents.find(d=>d.id===val('printLoanSelect'));if(!d){target.textContent='Chưa có phiếu được phát hành.';return;}
-  const s=d.snapshot,l=s.loan;const labels={BORROW:'PHIẾU MƯỢN SÁCH',RETURN:'PHIẾU TRẢ & ĐỐI SOÁT',REPLACEMENT:'BIÊN NHẬN SÁCH THAY THẾ',STATEMENT:'BIÊN NHẬN QUYẾT TOÁN'};
-  target.innerHTML=`<h2>${esc(s.settings.libraryName)}</h2><p>${esc(s.settings.address)} — ${esc(s.settings.hotline)}</p><h2>${labels[d.type]||esc(d.type)}</h2><p>Mã tài liệu: ${esc(d.code)}<br/>Phiếu: ${esc(l.code)} — ${esc(l.reader_snapshot.full_name)} — ${esc(l.reader_snapshot.phone_display)}<br/>Ngày mượn ${l.borrowed_on}; hạn ${l.due_on}</p><table class="data-table"><thead><tr><th>Mã cuốn</th><th>Tên sách</th><th>Tình trạng giao / nhận</th><th>Ngày giao</th><th>Hạn trả</th><th>Ngày trả</th><th>Cọc đã thu</th></tr></thead><tbody>${s.items.map(i=>`<tr><td>${esc(i.copy_code)}</td><td>${esc(i.title_snapshot.title)}</td><td>${esc(i.condition_out_note)} / ${esc(i.condition_in||'Chưa nhận')}</td><td>${esc(i.checkout_on||l.borrowed_on)}</td><td>${esc(i.due_on||l.due_on)}</td><td>${i.returned_on||i.loss_confirmed_on||''}</td><td>${formatCurrency(Number(i.deposit_required_vnd))}</td></tr>`).join('')}</tbody></table><h3>Các khoản đã ghi nhận đến lúc lập tài liệu</h3>${s.transactions.map(t=>`<p>${esc(t.code)} — ${esc(typeLabels[t.type]||t.type)}: ${formatCurrency(Number(t.amount_vnd))}</p>`).join('')}<p>${esc(s.settings.termsOnPrint)}</p><div class="print-signatures"><div>NGƯỜI MƯỢN<br/>(Ký, ghi rõ họ tên)</div><div>NGƯỜI XỬ LÝ<br/>(Ký, ghi rõ họ tên)</div></div>`;
+function loanPaperDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value || '');
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : '—';
 }
+
+function loanPaperMarkup({snapshot, type='BORROW', code, draft=false, pendingDeposit=null, walletName=''}) {
+  const {loan, items, settings, transactions=[]} = snapshot;
+  const reader=loan.reader_snapshot || {};
+  const labels={BORROW:'PHIẾU THU - MƯỢN SÁCH',RETURN:'PHIẾU TRẢ & ĐỐI SOÁT',REPLACEMENT:'BIÊN NHẬN SÁCH THAY THẾ',STATEMENT:'BIÊN NHẬN QUYẾT TOÁN'};
+  const collected=transactions.filter(entry=>entry.type==='COLLECT_DEPOSIT').reduce((sum,entry)=>sum+Number(entry.amount_vnd),0);
+  const received=items.filter(item=>item.returned_on).length;
+  const amount=collected+(pendingDeposit || 0);
+  const deposit=draft && pendingDeposit===null ? 'Đang chờ tính' :
+    draft && pendingDeposit>0 ? 'Dự kiến '+formatCurrency(amount) : amount ? formatCurrency(amount)+' đã nhận' : 'Không thu cọc';
+  const rows=items.map(item=>`<tr><td><b>${esc(item.copy_code)}</b></td><td>${esc(item.title_snapshot?.title)}</td>
+    <td>${esc(item.condition_out_note || item.condition_out || '—')} / ${esc(item.condition_in || (item.loss_confirmed_on?'Báo mất':'Chưa nhận'))}</td>
+    <td>${loanPaperDate(item.checkout_on || loan.borrowed_on)}<br>Hạn ${loanPaperDate(item.due_on || loan.due_on)}${item.returned_on ? '<br>Trả '+loanPaperDate(item.returned_on) : item.loss_confirmed_on ? '<br>Mất '+loanPaperDate(item.loss_confirmed_on) : ''}</td>
+    <td>${item.deposit_required_vnd==null?'—':formatCurrency(Number(item.deposit_required_vnd))}</td></tr>`).join('');
+  return `<article class="loan-paper-content">
+    <header><p class="loan-paper-brand">${esc(settings.libraryName || 'Thư viện Lamour')}</p><h2>${esc(labels[type] || type)}</h2>
+      <div class="loan-paper-meta"><span>Mã phiếu: <b>${esc(loan.code || 'Chưa phát hành')}</b></span><span>Ngày lập: ${loanPaperDate(loan.created_at || snapshot.printedAt)}</span></div>
+      ${code ? '<small>Chứng từ: '+esc(code)+'</small>' : ''}</header>
+    <section><h3>Trạng thái phiếu</h3><dl class="loan-paper-fields">
+      <div><dt>Phát hành</dt><dd>${draft ? 'Bản xem trước' : 'Đã phát hành'}</dd></div>
+      <div><dt>Tiền cọc</dt><dd>${esc(deposit)}${walletName?' · '+esc(walletName):''}</dd></div>
+      <div><dt>Thu sách</dt><dd>${received ? received+'/'+items.length+' cuốn đã nhận' : 'Chưa thu'}</dd></div>
+    </dl></section>
+    <section><h3>Thông tin độc giả</h3><dl class="loan-paper-fields">
+      <div><dt>Họ và tên</dt><dd>${esc(reader.full_name || '—')}</dd></div>
+      <div><dt>Điện thoại</dt><dd>${esc(reader.phone_display || '—')}</dd></div>
+      <div><dt>Nhóm độc giả</dt><dd>${esc(readerLabels[loan.category_snapshot || reader.reader_category] || '—')}</dd></div>
+      <div><dt>Email</dt><dd>${esc(reader.email || '—')}</dd></div>
+      <div><dt>Địa chỉ</dt><dd>${esc(reader.address || '—')}</dd></div>
+    </dl></section>
+    <section><h3>Thông tin sách mượn</h3><table class="loan-paper-table">
+      <thead><tr><th>Mã cuốn</th><th>Tên sách</th><th>Tình trạng giao / nhận</th><th>Ngày giao / hạn trả</th><th>Cọc</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="5">Chưa có sách được chọn.</td></tr>'}</tbody></table></section>
+    ${transactions.length ? `<section><h3>Giao dịch đã ghi nhận</h3>${transactions.map(entry=>`<p>${esc(entry.code)} · ${esc(typeLabels[entry.type] || entry.type)} · ${formatCurrency(Number(entry.amount_vnd))}</p>`).join('')}</section>` : ''}
+    ${settings.termsOnPrint ? '<p class="loan-paper-terms">'+esc(settings.termsOnPrint)+'</p>' : ''}
+    <div class="print-signatures"><div><b>NGƯỜI MƯỢN</b><br>(Ký, ghi rõ họ tên)</div><div><b>NGƯỜI XỬ LÝ</b><br>(Ký, ghi rõ họ tên)</div></div>
+  </article>`;
+}
+
+function renderPrintPreview(){
+  const target=document.getElementById('a4PrintSheet');
+  const selected=liveState?.print_documents.find(entry=>entry.id===val('printLoanSelect'));
+  target.textContent=liveState?'Chưa có phiếu được phát hành.':'';
+  if (selected) target.innerHTML=loanPaperMarkup(selected);
+}
+
+
 async function download(path,body,name){
   const r=await fetch('/api/v1/'+path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},...(body?{body:JSON.stringify(body)}:{})});
   if(!r.ok){const x=await r.json();throw new Error(x.error?.message||'Không tải được file.');}

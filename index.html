@@ -1222,8 +1222,8 @@
         </div>
         <button class="modal-close" onclick="closeModal('newLoanModal')">✕</button>
       </div>
-      <div class="modal-body">
-        <form id="newLoanForm" onsubmit="submitNewLoan(event)">
+      <div class="modal-body studio-loan-composer">
+        <form id="newLoanForm" onsubmit="submitNewLoan(event)" oninput="renderStudioLoanPreview()" onchange="renderStudioLoanPreview()">
           <div id="studioLoanFormHistory"></div>
           <div class="form-row">
             <label for="loanReaderSearch">Tìm độc giả theo mã, tên hoặc số điện thoại</label>
@@ -1272,6 +1272,10 @@
             <button type="submit" class="btn btn-primary">Xác nhận giao sách</button>
           </div>
         </form>
+        <aside class="studio-loan-paper-wrap" aria-label="Xem trước phiếu PDF">
+          <p class="studio-loan-paper-caption">XEM TRƯỚC PHIẾU PDF</p>
+          <div id="studioLoanPaper" class="loan-paper"></div>
+        </aside>
       </div>
     </div>
   </div>
