@@ -185,14 +185,36 @@ export async function printSnapshot(c,actor,loanId,type,receiptId=null) {
   return one(c,'insert into library.print_documents(code,loan_id,receipt_id,type,snapshot,created_by) values($1,$2,$3,$4,$5,$6) returning *',[`${l.code}-${type}-${randomUUID().slice(0,8)}`,loanId,receiptId,type,JSON.stringify({loan:l,items,settings:settings.value,transactions,charges,printedAt:new Date().toISOString()}),actor]);
 }
 export async function changeCopy(c,actor,p) {
-  assert(['READY','REPAIR','DAMAGED','LOST','RETIRED'].includes(p.status),'Không thể tự chuyển sang Đang mượn.');
+  assert(['READY','REPAIR','DAMAGED','LOST','RETIRED','ON_LOAN'].includes(p.status),'Trạng thái không hợp lệ.');
   const old=await one(c,'select * from library.book_copies where id=$1 for update',[p.id]); assert(old,'Không tìm thấy cuốn.',404);
   assert(old.version===p.version,'Cuốn đã thay đổi.',409);
   const active=await one(c,"select id from library.loan_items where copy_id=$1 and resolution_status in ('OPEN','LOST_PENDING')",[p.id]);
-  assert(!active&&old.status!=='ON_LOAN','Cuốn đang trên phiếu mượn; xử lý qua phiếu trả/mất.');
+  if (p.status !== old.status) assert(!active && old.status !== 'ON_LOAN' && p.status !== 'ON_LOAN','Cuốn đang trên phiếu mượn; xử lý qua phiếu trả/mất.');
   assert(!(old.status==='LOST'&&p.status==='READY'),'Sách mất cần nhập cuốn thay thế với mã mới.');
-  const result=await one(c,'update library.book_copies set status=$2,version=version+1,updated_at=now() where id=$1 returning *',[p.id,p.status]);
+  const result=await one(c,`update library.book_copies set status=$2,physical_condition=$3,media_type=$4,
+    shelf_location=$5,condition_note=$6,acquired_on=$7,version=version+1,updated_at=now() where id=$1 returning *`,
+  [p.id,p.status,text(p.condition ?? old.physical_condition,'Tình trạng',200,true),text(p.mediaType ?? old.media_type,'Loại',100,true),
+    text(p.shelf ?? old.shelf_location ?? '','Vị trí kệ',200),text(p.note ?? old.condition_note ?? '','Ghi chú',3000),date(p.acquiredOn ?? old.acquired_on)]);
   await audit(c,actor,'STATUS','book_copies',p.id,old,result,text(p.reason,'Lý do đổi trạng thái',2000,true)); return result;
+}
+export async function adjustCopyTotal(c, actor, p) {
+  const title = await one(c,'select id from library.book_titles where id=$1 and archived_at is null for update',[p.titleId]);
+  assert(title,'Không tìm thấy đầu sách.',404);
+  const copies = await rows(c,`select id,status,version from library.book_copies
+    where title_id=$1 and status not in ('LOST','RETIRED') order by code desc for update`,[title.id]);
+  assert(copies.length === p.previousTotal,'Số cuốn đã thay đổi. Hãy tải lại danh sách.',409);
+  assert(Number.isSafeInteger(p.total) && p.total >= 0 && Math.abs(p.total - copies.length) <= 100,'Mỗi lần điều chỉnh tối đa 100 cuốn.');
+  const reason = text(p.reason,'Lý do',2000,true);
+  const delta = p.total - copies.length;
+  if (delta < 0) {
+    const candidates = copies.filter(copy => copy.status === 'READY').slice(0,-delta);
+    assert(candidates.length === -delta,'Không đủ cuốn Có sẵn để giảm. Hãy xử lý các cuốn còn lại theo từng mã.');
+    for (const copy of candidates) await changeCopy(c,actor,{id:copy.id,version:copy.version,status:'RETIRED',reason});
+  } else {
+    for (let index = 0; index < delta; index++) await addCopy(c,title.id);
+  }
+  if (delta) await audit(c,actor,'STOCK_ADJUST','book_titles',title.id,{total:copies.length},{total:p.total},reason);
+  return {total:p.total};
 }
 export async function publicBooks(c) {
   return rows(c,`select t.code,t.title,t.authors,coalesce(g.name,'') category,t.cover_url,t.short_description,t.description,t.publisher,t.language,

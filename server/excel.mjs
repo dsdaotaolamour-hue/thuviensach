@@ -4,7 +4,15 @@ import {rows,one,hash,createBook,audit,addCopy} from './service.mjs';
 export const TITLE_HEADERS=['STT','MÃ ĐẦU SÁCH','TÊN ĐẦU SÁCH','TÁC GIẢ','THỂ LOẠI','NHÀ XUẤT BẢN','NGÔN NGỮ','NGÀY NHẬP','LINK ẢNH BÌA','MÔ TẢ SÁCH','NĂM XUẤT BẢN','ISBN','GIÁ BÌA (đ)','HIỂN THỊ WEB','TỔNG SỐ CUỐN','CÓ SẴN','ĐANG MƯỢN','ĐANG SỬA','SỐ TRANG','TÌNH TRẠNG PHÁT HÀNH','NHÓM ĐƠN GIÁ TRANG','VERSION'];
 export const COPY_HEADERS=['STT','MÃ SÁCH','TÌNH TRẠNG','LOẠI','TRẠNG THÁI','VỊ TRÍ KỆ','NGÀY NHẬP','GHI CHÚ','MÃ ĐẦU SÁCH','TÊN ĐẦU SÁCH','VERSION'];
 const safe=value=>typeof value==='string'&&/^[=+@-]/.test(value)?"'"+value:value;
-function value(cell) {
+const titleFields = {
+  title:'title', author:'authors', category:'category', publisher:'publisher', language:'language',
+  acquiredOn:'acquired_on', coverUrl:'cover_url', description:'description', year:'publication_year', isbn:'isbn',
+  price:'cover_price_vnd', showOnWeb:'show_on_web', pages:'page_count', publishStatus:'publication_status',
+  languageGroup:'compensation_language_group'
+};
+const copyFields = {condition:'physical_condition',mediaType:'media_type',shelf:'shelf_location',acquiredOn:'acquired_on',note:'condition_note'};
+const normalized = value => value == null ? '' : String(value).trim().replace(/^'(?=[=+@-])/,'');
+export function value(cell) {
   const v=cell.value; if(v==null) return '';
   if(v instanceof Date) return v.toISOString().slice(0,10);
   if(typeof v==='object') {
@@ -14,9 +22,9 @@ function value(cell) {
   }
   return v;
 }
-function checkArchive(buffer) {
+export function checkArchive(buffer) {
   assert(buffer.length<=5*1024*1024,'File tối đa 5MB.');
-  assert(buffer.readUInt32LE(0)===0x04034b50,'Chỉ nhận file .xlsx.');
+  assert(buffer.length>=4 && buffer.readUInt32LE(0)===0x04034b50,'Chỉ nhận file .xlsx.');
   // Inspect central directory before decompression: reject macros, external relationships and zip bombs.
   let total=0,entries=0;
   for(let i=0;i<buffer.length-46;i++) if(buffer.readUInt32LE(i)===0x02014b50) {
@@ -33,7 +41,7 @@ export async function inspectWorkbook(buffer) {
     fields:s.getRow(1).values.slice(1).map((h,i)=>({column:i+1,header:h,formula:[2,3,4].some(n=>!!s.getRow(n).getCell(i+1).formula)}))}))};
 }
 export async function validateImport(c,actor,buffer,mode) {
-  assert(['CREATE','UPDATE'].includes(mode),'Chọn Thêm mới hoặc Cập nhật.');
+  assert(['CREATE','UPDATE','SYNC'].includes(mode),'Chọn chế độ nhập hợp lệ.');
   checkArchive(buffer); const wb=new ExcelJS.Workbook(); await wb.xlsx.load(buffer);
   assert(wb.getWorksheet('ĐẦU SÁCH')&&wb.getWorksheet('SÁCH'),'Thiếu sheet ĐẦU SÁCH hoặc SÁCH.');
   const planned=[]; let count=0;
@@ -45,7 +53,7 @@ export async function validateImport(c,actor,buffer,mode) {
       const row=sh.getRow(n),code=String(value(row.getCell(2))||'').trim();
       if(!code) continue; count++; assert(count<=2000,'Tối đa 2.000 dòng dữ liệu.');
       const errors=[]; const v=i=>value(row.getCell(i));
-      let data={kind,code};
+      let data={kind,code}, action=mode, changes=[];
       try {
         assert((kind==='title'?/^DS\d{3,}$/:/^DS\d{3,}-\d{3,}$/).test(code),'Mã không đúng DS001 / DS001-001.');
         const writable=kind==='title'?[2,3,4,5,6,7,8,9,10,11,12,13,14,19,20,21,22]:[2,3,4,6,7,8,11];
@@ -63,36 +71,67 @@ export async function validateImport(c,actor,buffer,mode) {
           data={...data,titleCode:code.replace(/-\d+$/,''),condition:String(v(3)||'Tốt'),mediaType:String(v(4)||'Sách'),status:String(v(5)),shelf:String(v(6)),acquiredOn:v(7)||today(),note:String(v(8)),version:Number(v(11))||null};
           date(data.acquiredOn);
         }
-        const old=await one(c,`select * from library.${kind==='title'?'book_titles':'book_copies'} where code=$1`,[code]);
-        assert(mode==='CREATE'?!old:!!old,mode==='CREATE'?'Mã đã tồn tại.':'Không tìm thấy mã để cập nhật.');
-        if(mode==='UPDATE') assert(data.version===old.version,'Thiếu VERSION hoặc phiên bản đã thay đổi; xuất file mới.');
-        data.before=old||null;
+        const old=await one(c,kind==='title'
+          ? 'select t.*,g.name category from library.book_titles t left join library.book_categories g on g.id=t.category_id where t.code=$1'
+          : 'select * from library.book_copies where code=$1',[code]);
+        if (mode==='UPDATE') assert(old,'Không tìm thấy mã để cập nhật.');
+        action=old?'UPDATE':'CREATE';
+        if (old) {
+          const fields=kind==='title'?titleFields:copyFields;
+          for (const [key,column] of Object.entries(fields)) {
+            const optionalColumn = {pages:19,publishStatus:20,languageGroup:21}[key];
+            if (kind==='title' && optionalColumn && value(sh.getRow(1).getCell(optionalColumn))!==TITLE_HEADERS[optionalColumn-1]) {
+              data[key]=old[column];
+              continue;
+            }
+            if (key==='acquiredOn' && !v(kind==='title'?8:7)) data[key]=old[column];
+            if (typeof data[key]==='string') data[key]=normalized(data[key]);
+            if (normalized(data[key])!==normalized(old[column])) changes.push({field:key,from:old[column],to:data[key]});
+          }
+          if (!changes.length) action='SKIP';
+          else {
+            if (mode==='UPDATE' || data.version) assert(data.version===old.version,'VERSION đã thay đổi hoặc bị thiếu; xuất file mới.');
+            assert(!old.archived_at,'Đầu sách đã lưu trữ.');
+            data.version=old.version;
+          }
+        }
         if(kind==='copy') {
-          if(mode==='CREATE') assert(!data.status||data.status==='Có sẵn','Cuốn mới chỉ được Có sẵn; không nhập giao dịch bằng Excel.');
+          if(action==='CREATE') assert(!data.status||data.status==='Có sẵn','Cuốn mới chỉ được Có sẵn; không nhập giao dịch bằng Excel.');
           const parent=await one(c,'select id from library.book_titles where code=$1',[data.titleCode]);
           assert(parent||planned.some(x=>x.data.kind==='title'&&x.data.code===data.titleCode&&!x.errors.length),'Không tìm thấy đầu sách tương ứng.');
         }
         assert(!planned.some(x=>x.data.kind===kind&&x.data.code===code),'Trùng mã trong workbook.');
       } catch(e) { errors.push(e.message); }
-      planned.push({sheet:sheetName,row:n,data,errors,action:mode});
+      planned.push({sheet:sheetName,row:n,data,errors,action,changes});
     }
   }
   assert(planned.length>0,'Không có dữ liệu sách.');
-  const job=await one(c,'insert into library.import_jobs(file_hash,mode,status,created_by) values($1,$2,$3,$4) returning *',[hash(buffer),mode,planned.some(x=>x.errors.length)?'INVALID':'VALIDATED',actor]);
-  for(const r of planned) await c.query('insert into library.import_rows(job_id,sheet,row_number,data,errors,planned_action) values($1,$2,$3,$4,$5,$6)',[job.id,r.sheet,r.row,JSON.stringify(r.data),JSON.stringify(r.errors),r.action]);
+  await c.query('select pg_advisory_xact_lock(hashtext($1))',['excel-preview:'+actor]);
+  await c.query(`delete from library.import_rows where job_id in
+    (select id from library.import_jobs where created_by=$1)`,[actor]);
+  await c.query(`delete from library.import_jobs where created_by=$1`,[actor]);
+  const status=planned.some(x=>x.errors.length)?'INVALID':planned.every(x=>x.action==='SKIP')?'UNCHANGED':'VALIDATED';
+  const job=status==='VALIDATED'
+    ? await one(c,'insert into library.import_jobs(file_hash,mode,status,created_by) values($1,$2,$3,$4) returning *',[hash(buffer),mode,status,actor])
+    : {status};
+  if (job.id) for(const r of planned.filter(row=>row.action!=='SKIP')) {
+    await c.query('insert into library.import_rows(job_id,sheet,row_number,data,errors,planned_action) values($1,$2,$3,$4,$5,$6)',[job.id,r.sheet,r.row,JSON.stringify(r.data),'[]',r.action]);
+  }
   return {job,rows:planned};
 }
 export async function commitImport(c,actor,id) {
+  await c.query('select pg_advisory_xact_lock(hashtext($1))',['excel-preview:'+actor]);
   const job=await one(c,'select * from library.import_jobs where id=$1 and created_by=$2 for update',[id,actor]);
-  assert(job?.status==='VALIDATED','Job chưa hợp lệ hoặc đã nhập.');
+  assert(job?.status==='VALIDATED' && ['CREATE','UPDATE','SYNC'].includes(job.mode),'Job chưa hợp lệ hoặc đã nhập.');
   const planned=await rows(c,'select * from library.import_rows where job_id=$1 order by case when sheet=\'ĐẦU SÁCH\' then 0 else 1 end,row_number',[id]);
   // Serialize manual and imported title-code generation.
   await c.query("select pg_advisory_xact_lock(hashtext('book-code-import'))");
   for(const r of planned) {
     const p=r.data;
-    if(job.mode==='CREATE'&&p.kind==='title') {
+    const create=r.planned_action==='CREATE';
+    if(create&&p.kind==='title') {
       await createBook(c,actor,{...p,importCode:p.code});
-    } else if(job.mode==='CREATE') {
+    } else if(create) {
       const t=await one(c,'select id from library.book_titles where code=$1',[p.titleCode]); const cp=await addCopy(c,t.id,p);
       await c.query('update library.book_copies set code=$2 where id=$1',[cp.id,p.code]);
     } else if(p.kind==='title') {
@@ -105,8 +144,9 @@ export async function commitImport(c,actor,id) {
     }
   }
   await c.query("select setval('library.title_seq',greatest((select last_value from library.title_seq),(select coalesce(max(substring(code from 3)::bigint),1) from library.book_titles)))");
-  await c.query("update library.import_jobs set status='COMMITTED' where id=$1",[id]);
-  await audit(c,actor,'IMPORT','import_jobs',id,null,{fileHash:job.file_hash,mode:job.mode,rows:planned},'Nhập dữ liệu sách đã xem trước');
+  await c.query('delete from library.import_rows where job_id=$1',[id]);
+  await c.query('delete from library.import_jobs where id=$1',[id]);
+  await audit(c,actor,'IMPORT','import_jobs',id,null,{fileHash:job.file_hash,mode:job.mode,count:planned.length},'Nhập dữ liệu sách đã xem trước');
   return {imported:planned.length};
 }
 export async function exportBooks(c,template=false) {

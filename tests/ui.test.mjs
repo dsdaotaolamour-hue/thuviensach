@@ -74,5 +74,19 @@ test('authenticated empty system renders every admin tab without sample records 
  assert.ok(!w.document.getElementById('studioBell').classList.contains('has-unread'));
  w.studioHelp();
  assert.ok(w.document.querySelector('#studioHelpModal details summary'));
+ state.book_titles.push(...Array.from({length:22},(_,i)=>({
+   id:'book-'+i,code:'DS'+String(i+1).padStart(3,'0'),title:'Sách '+(i+1),authors:'Tác giả',show_on_web:false
+ })));
+ w.switchAdminTab('books');
+ const bookRows = w.document.getElementById('adminBooksTableBody');
+ assert.equal(bookRows.rows.length,10);
+ w.changeStudioBookPage(2);
+ assert.match(bookRows.rows[0].textContent,/DS011/);
+ assert.match(w.document.getElementById('studioBookDetail').textContent,/Sách 11/);
+ w.document.getElementById('studioBookPageSize').value='20';
+ w.changeStudioBookPage(1);
+ assert.equal(bookRows.rows.length,20);
+ w.changeStudioBookPage(2);
+ assert.equal(bookRows.rows.length,2);
  dom.window.close();
 });

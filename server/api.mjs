@@ -6,6 +6,8 @@ import {appOrigin,requireAdmin,login,sessionCookies,cookies,authFetch,reauthenti
 import {validateImport,commitImport,exportBooks} from './excel.mjs';
 import {editTitle,editReader,saveNote} from './admin-edit.mjs';
 import {notificationInbox} from './notifications.mjs';
+import {resetChallenge,prepareReset,commitReset} from './reset.mjs';
+import {operationsTemplate,previewOperations,commitOperations} from './operations-excel.mjs';
 const json=(data,status=200)=>Response.json({data},{status,headers:{'Cache-Control':'no-store'}});
 export async function handle(request,segments,provider=null) {
   const path=segments.join('/'),method=request.method,requestId=randomUUID(); let admin;
@@ -44,6 +46,28 @@ export async function handle(request,segments,provider=null) {
     let response;
     if(path==='auth/session'&&method==='GET') response=json({email:admin.email});
     else if(path==='admin/notifications'&&method==='POST') response=json(await transaction(c=>notificationInbox(c,admin.id,p),db));
+    else if(path==='admin/reset/challenge'&&method==='POST') response=json(await resetChallenge(db,admin.id));
+    else if(path==='admin/reset/prepare'&&method==='POST') {
+      assert(typeof p.password==='string' && p.password && p.password===p.confirmPassword,'Hai mật khẩu phải trùng nhau.');
+      await reauthenticate(db,admin,p.password);
+      response=json(await transaction(async c=>{
+        await c.query('set transaction isolation level repeatable read');
+        return prepareReset(c,admin.id,p);
+      },db));
+    }
+    else if(path==='admin/reset/commit'&&method==='POST') response=json(await transaction(c=>commitReset(c,admin.id,p),db));
+    else if(path==='admin/operations-excel/template'&&method==='GET') {
+      const query = new URL(request.url).searchParams;
+      const workbook = await operationsTemplate(db,query.get('kind'),query.get('template')==='1');
+      response = new Response(workbook,{headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Cache-Control':'no-store'}});
+    }
+    else if(path==='admin/operations-excel/preview'&&method==='POST') {
+      const form = await request.formData(), file = form.get('file');
+      assert(file && file.size>0 && file.size<=4*1024*1024 && file.name?.endsWith('.xlsx'),'Chọn file .xlsx tối đa 4 MB.');
+      await reauthenticate(db,admin,form.get('password'));
+      const buffer = Buffer.from(await file.arrayBuffer());
+      response = json(await transaction(c=>previewOperations(c,admin.id,buffer,form.get('kind')),db));
+    }
     else if(path==='admin/state'&&method==='GET') response=json(await transaction(async c=>{await c.query('set transaction isolation level repeatable read read only');return svc.state(c);},db));
     else if(path==='admin/reminders'&&method==='GET') response=json(await svc.reminders(db,admin.id));
     else if(path==='admin/audit-logs'&&method==='GET') {
@@ -67,7 +91,10 @@ export async function handle(request,segments,provider=null) {
       const backup=await transaction(async c=>{
         await c.query('set transaction isolation level repeatable read');
         const tables=await svc.rows(c,"select tablename from pg_tables where schemaname='library' and tablename not in ('auth_attempts','idempotency_records','admin_accounts','admin_sessions') order by tablename");
-        const data={}; for(const t of tables) data[t.tablename]=await svc.rows(c,`select * from library.${t.tablename}`);
+        const data={}; for(const t of tables) {
+          const filter = t.tablename === 'system_settings' ? " where left(key,6) <> 'reset_'" : '';
+          data[t.tablename]=await svc.rows(c,`select * from library.${t.tablename}${filter}`);
+        }
         const payload={schemaVersion:2,appVersion:'1.0.0',createdAt:new Date().toISOString(),timezone:'Asia/Ho_Chi_Minh',data};
         const checksum=svc.hash(payload); await c.query("insert into library.backup_runs(status,checksum,row_counts) values('EXPORTED',$1,$2)",[checksum,JSON.stringify(Object.fromEntries(Object.entries(data).map(([k,v])=>[k,v.length])))]);
         await svc.audit(c,admin.id,'BACKUP_EXPORT','backup_runs',null,null,{checksum}); return {payload,checksum};
@@ -89,6 +116,8 @@ export async function handle(request,segments,provider=null) {
         if(path==='admin/readers'&&method==='POST') return svc.createReader(c,admin.id,p);
         if(path==='admin/copies'&&method==='POST') { const cp=await svc.addCopy(c,p.titleId,p); await svc.audit(c,admin.id,'CREATE','book_copies',cp.id,null,cp); return cp; }
         if(path==='admin/copies/status') return svc.changeCopy(c,admin.id,p);
+        if(path==='admin/copies/total') return svc.adjustCopyTotal(c,admin.id,p);
+        if(path==='admin/operations-excel/commit') return commitOperations(c,admin.id,p.jobId);
         if(path==='admin/book-titles/visibility') {
           assert(typeof p.visible==='boolean','Hiển thị web không hợp lệ.');
           const old=await svc.one(c,'select * from library.book_titles where id=$1 for update',[p.id]); assert(old,'Không tìm thấy đầu sách.',404);

@@ -7,6 +7,8 @@ import ExcelJS from 'exceljs';
 import {addMonths,phone,settlement} from '../server/domain.mjs';
 import * as svc from '../server/service.mjs';
 import {notificationInbox} from '../server/notifications.mjs';
+import {resetChallenge,prepareReset,commitReset} from '../server/reset.mjs';
+import {operationsTemplate,previewOperations,commitOperations} from '../server/operations-excel.mjs';
 import {validateImport,commitImport,exportBooks,inspectWorkbook} from '../server/excel.mjs';
 const actor='00000000-0000-0000-0000-000000000001';
 async function fixture(){
@@ -118,9 +120,16 @@ test('policy snapshots do not change old loans and missing compensation evidence
 });
 test('Excel export round trip validates versions; original blank placeholder is rejected',async()=>{
   const db=await fixture();try{
-    await seed(db);const bytes=await exportBooks(db);const v=await tx(db,()=>validateImport(db,actor,bytes,'UPDATE'));assert.equal(v.job.status,'VALIDATED');assert.equal(v.rows.length,3);
+    await seed(db);const bytes=await exportBooks(db);
+    const unchanged=await tx(db,()=>validateImport(db,actor,bytes,'SYNC'));assert.equal(unchanged.job.status,'UNCHANGED');assert.equal(unchanged.rows.length,3);
+    const edited=new ExcelJS.Workbook();await edited.xlsx.load(bytes);
+    edited.getWorksheet('ĐẦU SÁCH').getCell('C2').value='Tên mới';
+    const editedBytes=Buffer.from(await edited.xlsx.writeBuffer());
+    const v=await tx(db,()=>validateImport(db,actor,editedBytes,'SYNC'));assert.equal(v.job.status,'VALIDATED');
+    assert.deepEqual(v.rows.map(r=>r.action),['UPDATE','SKIP','SKIP']);
     await tx(db,()=>commitImport(db,actor,v.job.id));
-    const stale=await tx(db,()=>validateImport(db,actor,bytes,'UPDATE'));assert.equal(stale.job.status,'INVALID');
+    assert.equal((await tx(db,()=>validateImport(db,actor,editedBytes,'SYNC'))).job.status,'UNCHANGED');
+    assert.equal((await tx(db,()=>validateImport(db,actor,bytes,'SYNC'))).job.status,'INVALID');
     const original=await validateImport(db,actor,await readFile('tests/fixtures/Book1_hoanchinh.xlsx'),'CREATE');assert.equal(original.job.status,'INVALID');
     const fresh=await exportBooks(db,true),wb=new ExcelJS.Workbook();await wb.xlsx.load(fresh);
     wb.getWorksheet('ĐẦU SÁCH').addRow([1,'DS100','Sách nhập Excel','Tác giả','Da liễu','','Tiếng Việt','','','','','0012345678901',123000,'Có',0,0,0,0,100,'IN_PRINT','VIETNAMESE']);
@@ -129,6 +138,69 @@ test('Excel export round trip validates versions; original blank placeholder is 
     await tx(db,()=>commitImport(db,actor,valid.job.id));assert.equal((await svc.one(db,"select isbn from library.book_titles where code='DS100'")).isbn,'0012345678901');
     const next=await svc.createBook(db,actor,{title:'Tiếp theo',copiesCount:0});assert.equal(next.code,'DS101');
   }finally{await db.close();}
+});
+test('operations Excel previews reader, loan and transfer entries and skips repeated references', async () => {
+  const db=await fixture();
+  try {
+    const {book}=await seed(db);
+    const workbook = async (kind,row) => {
+      const wb=new ExcelJS.Workbook();
+      await wb.xlsx.load(await operationsTemplate(db,kind,true));
+      wb.worksheets[0].addRow(row);
+      return Buffer.from(await wb.xlsx.writeBuffer());
+    };
+    const readerFile=await workbook('readers',['','Độc giả Excel','0912345679','WALK_IN']);
+    const r=await tx(db,()=>previewOperations(db,actor,readerFile,'readers'));
+    assert.ok(r.jobId,JSON.stringify(r.rows));
+    await tx(db,()=>commitOperations(db,actor,r.jobId));
+    const reader=await svc.one(db,"select code from library.readers where phone_normalized='0912345679'");
+    const loanFile=await workbook('loans',['LOAN-1',reader.code,book.code+'-001','2025-01-31','2025-04-30','Tốt','V01',500000,'Có']);
+    const l=await tx(db,()=>previewOperations(db,actor,loanFile,'loans'));
+    assert.ok(l.jobId,JSON.stringify(l.rows));
+    await tx(db,()=>commitOperations(db,actor,l.jobId));
+    assert.equal((await tx(db,()=>previewOperations(db,actor,loanFile,'loans'))).rows[0].action,'SKIP');
+    const transferFile=await workbook('transfers',['TRANSFER-1','V01','V02',100000,'Chuyển ví kiểm thử']);
+    const t=await tx(db,()=>previewOperations(db,actor,transferFile,'transfers'));
+    assert.ok(t.jobId,JSON.stringify(t.rows));
+    await tx(db,()=>commitOperations(db,actor,t.jobId));
+    assert.equal((await tx(db,()=>previewOperations(db,actor,transferFile,'transfers'))).rows[0].action,'SKIP');
+  } finally {await db.close();}
+});
+test('reset requires matching backup and refuses changed data before deleting', async () => {
+  const db=await fixture();
+  try {
+    const {p}=await seed(db);
+    await tx(db,()=>svc.issueLoan(db,actor,p,randomUUID()));
+    const prepare = async () => {
+      const challenge=await resetChallenge(db,actor);
+      return tx(db,()=>prepareReset(db,actor,{code:challenge.code,phrase:'tôi đồng ý reset'}));
+    };
+    const first=await prepare();
+    const data=JSON.parse(first.backup).payload.data;
+    assert.equal(data.readers.length,1);
+    assert.equal(data.loans.length,1);
+    assert.equal(data.cash_entries.length,1);
+    await assert.rejects(tx(db,()=>commitReset(db,actor,{token:first.token,fileHash:'wrong'})),/không khớp/);
+    await db.query("update library.readers set notes='Mới'");
+    await assert.rejects(tx(db,()=>commitReset(db,actor,{token:first.token,fileHash:svc.hash(first.backup)})),/đã thay đổi/);
+    const second=await prepare();
+    await tx(db,()=>commitReset(db,actor,{token:second.token,fileHash:svc.hash(second.backup)}));
+    assert.equal((await svc.rows(db,'select id from library.readers')).length,0);
+    assert.equal((await svc.rows(db,'select id from library.cash_entries')).length,0);
+    assert.equal((await svc.rows(db,'select id from library.admin_accounts')).length,1);
+    assert.equal((await svc.rows(db,'select id from library.wallets')).length,3);
+  } finally {await db.close();}
+});
+test('adjusting inventory creates and retires real copies without touching loans', async () => {
+  const db=await fixture();
+  try {
+    const {book,p}=await seed(db);
+    await tx(db,()=>svc.adjustCopyTotal(db,actor,{titleId:book.id,previousTotal:2,total:3,reason:'Thêm một cuốn'}));
+    await tx(db,()=>svc.issueLoan(db,actor,p,randomUUID()));
+    await tx(db,()=>svc.adjustCopyTotal(db,actor,{titleId:book.id,previousTotal:3,total:2,reason:'Thanh lý cuốn chưa mượn'}));
+    await assert.rejects(tx(db,()=>svc.adjustCopyTotal(db,actor,{titleId:book.id,previousTotal:2,total:1,reason:'Điều chỉnh'})),/Không đủ cuốn/);
+    assert.deepEqual((await svc.rows(db,'select status from library.book_copies where title_id=$1 order by code',[book.id])).map(row=>row.status),['ON_LOAN','ON_LOAN','RETIRED']);
+  } finally {await db.close();}
 });
 test('public DTO never exposes reader, copy, payment or auth data',async()=>{
   const db=await fixture();try{await seed(db);const items=await svc.publicBooks(db);assert.equal(items.length,1);assert.equal(items[0].available,2);assert.deepEqual(Object.keys(items[0]).sort(),['code','title','authors','category','cover_url','short_description','description','publisher','language','total','available'].sort());}finally{await db.close();}

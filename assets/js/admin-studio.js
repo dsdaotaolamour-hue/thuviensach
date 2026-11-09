@@ -94,7 +94,6 @@ function installStudio() {
 
   const importPanel = document.getElementById('importForm').closest('.panel-card');
   importPanel.classList.add('studio-import-content');
-  const copiesPanel = document.getElementById('adminCopiesTableBody').closest('.panel-card');
   const booksPane = document.getElementById('admin-tab-books');
   booksPane.innerHTML = `<div class="studio-toolbar">${studioSearch('adminBookSearch', 'Tìm theo mã sách, tên sách hoặc tác giả', 'renderAdminBooks()')}
     ${studioSelect('adminBookCategoryFilter', 'Chuyên mục', [['ALL', 'Tất cả chuyên mục']], 'renderAdminBooks()')}
@@ -102,11 +101,13 @@ function installStudio() {
     ${studioButton('Tìm kiếm', 'renderAdminBooks()', 'text')}${studioButton('Xóa lọc', 'clearBookFilters()', 'text danger-text')}
     <div class="studio-toolbar-actions">${studioButton('＋ Thêm đầu sách', 'openNewBookModal()')}${studioButton('CẬP NHẬT DATA SÁCH', 'openStudioImport()', 'white')}</div></div>
     <p id="adminBookResultCount" class="studio-result"></p><div class="studio-book-layout">
-    <section class="studio-card studio-list">${studioTable(['Mã', 'Tên sách', 'Tác giả', 'Thể loại', 'Giá bìa', 'Tổng', 'Có sẵn', 'Đang mượn', ''], '', 'adminBooksTableBody')}</section>
-    <aside class="studio-card studio-book-detail" id="studioBookDetail"></aside></div>
-    <details class="studio-copy-details"><summary>Quản lý từng cuốn sách</summary><div id="studioCopyPanel"></div></details>`;
-  document.getElementById('studioCopyPanel').append(copiesPanel);
+    <section class="studio-card studio-list studio-title-list">${studioTable(['Đầu sách', 'Có sẵn / Tổng'], '', 'adminBooksTableBody')}
+      <footer class="studio-log-pagination"><label>Hiển thị <select id="studioBookPageSize" onchange="changeStudioBookPage(1)"><option value="10">10</option><option value="20">20</option></select> đầu sách / trang</label>
+      <span id="studioBookPageStatus" role="status"></span><div><button id="studioBookPrev" class="studio-button white" onclick="changeStudioBookPage(studio.bookPage - 1)">Trước</button>
+      <button id="studioBookNext" class="studio-button white" onclick="changeStudioBookPage(studio.bookPage + 1)">Sau</button></div></footer></section>
+    <aside class="studio-card studio-book-detail" id="studioBookDetail"></aside></div>`;
   createStudioOverlay('studioImportModal', 'Cập nhật data sách', importPanel);
+  document.getElementById('importMode').replaceChildren(new Option('Đối chiếu theo mã · thêm mới và cập nhật','SYNC'));
   const password = document.createElement('label');
   password.innerHTML = 'Mật khẩu xác nhận<input name="password" id="studioImportPassword" type="password" autocomplete="current-password" required placeholder="Nhập mật khẩu quản trị để tải file lên" />';
   document.getElementById('importForm').insertBefore(password, document.getElementById('importForm').querySelector('button'));
@@ -128,7 +129,8 @@ function installStudio() {
       fileInput.dispatchEvent(new Event('change'));
     }
   });
-  importPanel.insertAdjacentHTML('beforeend', '<p class="studio-import-warning"><b>Lưu ý</b><br>Dùng mẫu Excel của hệ thống. Chọn Thêm mới cho sách mới hoặc Cập nhật cho file xuất có VERSION. Kiểm tra lỗi và thay đổi trước khi xác nhận nhập.</p>');
+  importPanel.querySelector('p').textContent = 'Đối chiếu theo mã. Dòng giống hệt được bỏ qua. Để sửa dữ liệu hiện có, nên xuất file mới nhất rồi giữ nguyên cột VERSION.';
+  importPanel.insertAdjacentHTML('beforeend', '<p class="studio-subtle">Tổng cuốn, tồn và trạng thái mượn được tính từ từng cuốn và phiếu. Chỉnh số lượng trong khung kho sách.</p>');
 
   buildStudioDashboard();
   buildStudioReaders();
@@ -168,6 +170,14 @@ function installStudio() {
   createStudioOverlay('studioCalendar', 'Chọn khoảng ngày');
   createStudioOverlay('studioHelpModal', 'Hướng dẫn sử dụng');
   createStudioOverlay('studioNotificationModal', 'Thông báo');
+  createStudioOverlay('studioResetModal', 'Reset dữ liệu thư viện');
+  createStudioOverlay('studioOperationsModal', 'Nhập dữ liệu Excel');
+  for (const [tab,kind,label] of [['readers','readers','Nhập Excel độc giả'],['loans','loans','Nhập Excel phiếu mượn'],['wallets','transfers','Nhập Excel chuyển ví']]) {
+    document.getElementById('admin-tab-'+tab).insertAdjacentHTML('afterbegin',`<div class="studio-toolbar">${studioButton(label,`openStudioOperations('${kind}')`,'white')}</div>`);
+  }
+  document.getElementById('admin-tab-settings').insertAdjacentHTML('beforeend', `<section class="studio-card studio-card-padding">
+    <h2>Reset dữ liệu thư viện</h2><p>Xóa sách, độc giả, phiếu, giao dịch, số dư và nhật ký. Giữ tài khoản quản trị, chính sách và cấu hình website.</p>
+    ${studioButton('Reset database', 'openStudioReset()', 'red')}</section>`);
   window.setInterval(() => {
     if (liveState && !document.hidden) void refreshStudioInbox();
   }, 60000);
@@ -369,49 +379,77 @@ renderAdminBooks = function () {
   categorySelect.value = [...categorySelect.options].some(option => option.value === selectedCategory) ? selectedCategory : 'ALL';
   const query = normalizeSearch(val('adminBookSearch'));
   const status = val('adminBookAvailabilityFilter');
+  const inventory = new Map();
+  for (const copy of liveState.book_copies) {
+    if (copy.status === 'LOST' || copy.status === 'RETIRED') continue;
+    const counts = inventory.get(copy.title_id) || {total:0,available:0};
+    counts.total++;
+    if (copy.status === 'READY') counts.available++;
+    inventory.set(copy.title_id,counts);
+  }
   const books = liveState.book_titles.filter(book => {
-    const counts = getBookCounts(book.code);
+    const available = inventory.get(book.id)?.available ?? 0;
     return (status === 'ARCHIVED' ? !!book.archived_at : !book.archived_at)
       && (!query || normalizeSearch(`${book.code} ${book.title} ${book.authors}`).includes(query))
       && (categorySelect.value === 'ALL' || categorySelect.value === book.category_id)
-      && (['ALL', 'ARCHIVED'].includes(status) || status === 'WEB' && book.show_on_web || status === 'AVAILABLE' && counts.available > 0 || status === 'UNAVAILABLE' && counts.available === 0);
+      && (['ALL', 'ARCHIVED'].includes(status) || status === 'WEB' && book.show_on_web || status === 'AVAILABLE' && available > 0 || status === 'UNAVAILABLE' && available === 0);
   });
-  if (!books.some(book => book.id === studio.bookId)) studio.bookId = books[0]?.id || null;
+  books.sort((a,b) => a.code.localeCompare(b.code, 'vi', {numeric:true}));
+  const filter = JSON.stringify([query, status, categorySelect.value]);
+  if (studio.bookFilter !== filter) studio.bookPage = 1;
+  studio.bookFilter = filter;
+  const size = Number(val('studioBookPageSize')) || 10;
+  const pages = Math.max(1,Math.ceil(books.length / size));
+  studio.bookPage = Math.min(studio.bookPage || 1,pages);
+  const page = books.slice((studio.bookPage - 1) * size,studio.bookPage * size);
+  if (!page.some(book => book.id === studio.bookId)) studio.bookId = page[0]?.id || null;
+  setText('studioBookPageStatus', `Trang ${studio.bookPage} / ${pages}`);
+  document.getElementById('studioBookPrev').disabled = studio.bookPage <= 1;
+  document.getElementById('studioBookNext').disabled = studio.bookPage >= pages;
   setText('adminBookResultCount', `${books.length} đầu sách`);
-  document.getElementById('adminBooksTableBody').innerHTML = books.map(book => {
-    const counts = getBookCounts(book.code);
-    const category = liveState.book_categories.find(item => item.id === book.category_id);
-    return `<tr class="${book.id === studio.bookId ? 'selected' : ''}"><td>${esc(book.code)}</td><td class="studio-title-cell" title="${esc(book.title)}">${esc(book.title)}</td><td>${esc(book.authors)}</td><td>${esc(category?.name)}</td><td>${book.cover_price_vnd == null ? 'Chưa rõ' : formatCurrency(book.cover_price_vnd)}</td><td>${counts.total}</td><td>${counts.available}</td><td>${counts.borrowed}</td><td>${studioButton('Thao tác', `selectStudioBook('${book.id}')`, 'mini white')}</td></tr>`;
-  }).join('') || studioEmpty('Chưa có đầu sách phù hợp. Thêm sách hoặc nhập Excel để bắt đầu.', 9);
+  document.getElementById('adminBooksTableBody').innerHTML = page.map(book => {
+    const counts = inventory.get(book.id) || {available:0,total:0};
+    return `<tr class="${book.id === studio.bookId ? 'selected' : ''}"><td><button type="button" class="studio-book-choice" aria-pressed="${book.id === studio.bookId}" onclick="selectStudioBook('${book.id}')"><small>${esc(book.code)}</small><strong>${esc(book.title)}</strong></button></td><td>${counts.available} / ${counts.total}</td></tr>`;
+  }).join('') || studioEmpty('Chưa có đầu sách phù hợp. Thêm sách hoặc nhập Excel để bắt đầu.', 2);
   renderStudioBookDetail();
-  renderStudioCopies();
 };
 
-function selectStudioBook(id) { studio.bookId = id; renderAdminBooks(); }
+function changeStudioBookPage(page) { studio.bookPage = page; renderAdminBooks(); }
+function selectStudioBook(id) {
+  studio.bookId = id;
+  renderAdminBooks();
+  document.querySelector('.studio-book-choice[aria-pressed="true"]')?.focus({preventScroll:true});
+  if (window.matchMedia?.('(max-width: 680px)').matches) document.getElementById('studioBookDetail').scrollIntoView({block:'start'});
+}
 
 function renderStudioBookDetail() {
   const book = selectedTitle();
   const target = document.getElementById('studioBookDetail');
   if (!book) { target.innerHTML = '<div class="studio-empty">Chọn một đầu sách để xem thông tin.</div>'; return; }
   const category = liveState.book_categories.find(item => item.id === book.category_id);
+  const counts = getBookCounts(book.code);
+  const copies = liveState.book_copies.filter(copy => copy.title_id === book.id).sort((a,b)=>a.code.localeCompare(b.code,'vi',{numeric:true}));
   target.innerHTML = `<div class="studio-book-summary"><div class="studio-book-cover">${bookCover({title: esc(book.title), author: esc(book.authors), coverUrl: esc(book.cover_url)})}</div>
     <div><span class="studio-tag">Mã: ${esc(book.code)}</span><h2>${esc(book.title)}</h2><p><b>Tác giả</b> ${esc(book.authors) || 'Chưa cập nhật'}</p><span class="studio-tag solid">Số lượng tồn: ${getBookCounts(book.code).available}</span></div></div>
     <dl class="studio-book-meta"><div><dt>Nhà xuất bản</dt><dd>${esc(book.publisher) || 'Chưa rõ'}</dd></div><div><dt>Thể loại</dt><dd>${esc(category?.name)}</dd></div><div><dt>Giá bìa</dt><dd>${book.cover_price_vnd == null ? 'Chưa rõ' : formatCurrency(book.cover_price_vnd)}</dd></div><div><dt>Ngôn ngữ</dt><dd>${esc(book.language)}</dd></div></dl>
-    <h3>Nội dung sách</h3><p class="studio-description">${esc(book.description || book.short_description) || 'Nội dung đang được cập nhật.'}</p>
+    <details><summary>Nội dung sách</summary><p class="studio-description">${esc(book.description || book.short_description) || 'Nội dung đang được cập nhật.'}</p></details>
+    <section class="studio-copy-stock"><h3>Kho của đầu sách này</h3>
+    <p><b>${counts.available}</b> có sẵn · <b>${counts.total}</b> tổng cuốn · <b>${counts.borrowed}</b> đang mượn</p>
+    ${book.archived_at ? '' : studioButton('Điều chỉnh tổng cuốn', 'adjustStudioBookTotal()', 'white')}
+    ${book.archived_at ? '' : studioButton('Thêm một cuốn', `addQuickCopy('${book.code}')`, 'white')}
+    <p class="studio-subtle">Chọn mã cuốn để chỉnh tình trạng, vị trí và trạng thái. Tồn có sẵn tính theo số cuốn ở trạng thái Có sẵn.</p>
+    <div class="studio-copy-choices">${copies.map(copy => studioButton(`${esc(copy.code)} <small>${esc(copyLabels[copy.status])}</small>`, `studioCopyStatus('${copy.id}')`, 'white')).join('') || 'Chưa có cuốn nào.'}</div></section>
     <p class="studio-subtle">${book.archived_at ? 'Đã lưu trữ' : book.show_on_web ? 'Đang hiển thị trên website' : 'Đang ẩn trên website'}</p>
     <div class="studio-detail-actions">${studioButton('Chỉnh sửa', 'editStudioBook()', 'dark-green')}${studioButton(book.show_on_web ? 'Khóa hiển thị' : 'Mở hiển thị', 'toggleStudioBook()', 'yellow')}${studioButton('Xóa sách', 'archiveStudioBook()', 'red')}</div>`;
 }
 
-function renderStudioCopies() {
-  const query = normalizeSearch(val('adminCopySearch'));
-  const copies = liveState.book_copies.filter(copy => (!query || normalizeSearch(`${copy.code} ${copy.shelf_location} ${copy.condition_note}`).includes(query))
-    && (val('adminCopyStatusFilter') === 'ALL' || copyLabels[copy.status] === val('adminCopyStatusFilter'))
-    && (val('adminCopyConditionFilter') === 'ALL' || copy.physical_condition === val('adminCopyConditionFilter')));
-  setText('adminCopyResultCount', `${copies.length} cuốn`);
-  document.getElementById('adminCopiesTableBody').innerHTML = copies.map(copy => {
-    const book = liveState.book_titles.find(item => item.id === copy.title_id);
-    return `<tr><td>${esc(copy.code)}</td><td>${esc(book?.code)}</td><td>${esc(book?.title)}</td><td>${esc(copy.physical_condition)}</td><td>${copyLabels[copy.status]}</td><td>${esc(copy.shelf_location)}</td><td>${esc(copy.condition_note)}</td><td>${studioButton('Đổi trạng thái', `studioCopyStatus('${copy.id}')`, 'mini white')}</td></tr>`;
-  }).join('') || studioEmpty('Chưa có cuốn phù hợp.', 8);
+function adjustStudioBookTotal() {
+  const book = selectedTitle();
+  const previousTotal = getBookCounts(book.code).total;
+  openStudioEditor('Điều chỉnh tổng cuốn · ' + book.code, [
+    {name:'total', label:'Tổng cuốn mới', type:'number', value:previousTotal, min:0, required:true},
+    {name:'reason', label:'Lý do (giảm sẽ thanh lý các cuốn Có sẵn có mã lớn nhất)', required:true}
+  ], input => api('admin/copies/total', {...input, total:Number(input.total), titleId:book.id, previousTotal}));
 }
 
 renderAdminReaders = function () {
@@ -611,6 +649,13 @@ openModal = function (id) {
   setTimeout(() => overlay?.querySelector('input:not([type=hidden]),select,textarea,button')?.focus(), 0);
 };
 closeModal = function (id) {
+  if (id === 'studioOperationsModal') document.getElementById('studioOperationsModalBody')?.replaceChildren();
+  if (id === 'studioResetModal') {
+    clearInterval(studioResetTimer);
+    studioResetTimer = null;
+    studioResetToken = null;
+    document.getElementById('studioResetModalBody')?.replaceChildren();
+  }
   previousCloseModal(id);
   document.getElementById(id)?.setAttribute('aria-hidden', 'true');
   if (id === 'studioDialog' && studio.dialogResolve) {
@@ -620,6 +665,85 @@ closeModal = function (id) {
   if (!document.querySelector('.modal-overlay.open')) document.body.classList.remove('studio-modal-open');
   if (studio.lastFocus?.isConnected) studio.lastFocus.focus();
 };
+
+let studioResetTimer = null;
+let studioResetToken = null;
+
+function openStudioReset() {
+  const body = document.getElementById('studioResetModalBody');
+  body.innerHTML = `<form onsubmit="prepareStudioReset(event)">
+    <p>Reset sẽ xóa dữ liệu vận hành và đưa số dư về 0. Hệ thống sẽ tải bản sao lưu trước; chọn lại đúng file đã tải để xác nhận.</p>
+    <label>Mật khẩu quản trị<input type="password" name="password" autocomplete="current-password" required></label>
+    <label>Nhập lại mật khẩu<input type="password" name="confirmPassword" autocomplete="current-password" required></label>
+    <label>Gõ “tôi đồng ý reset”<input name="phrase" required autocomplete="off"></label>
+    <p>Mã xác nhận: <strong id="studioResetCode">…</strong> <small id="studioResetCountdown"></small></p>
+    <label>Nhập mã đang hiển thị<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="off"></label>
+    <div class="studio-modal-actions"><button type="submit" class="studio-button green">Tạo và tải bản sao lưu</button></div>
+  </form>`;
+  openModal('studioResetModal');
+  const form = body.querySelector('form');
+  let expiresAt = 0, loading = false;
+  const tick = async () => {
+    if (!form.isConnected || form.dataset.busy) return;
+    if (Date.now() >= expiresAt && !loading) {
+      loading = true;
+      try {
+        const challenge = await api('admin/reset/challenge', {});
+        if (!form.isConnected) return;
+        setText('studioResetCode', challenge.code);
+        form.elements.code.value = '';
+        expiresAt = challenge.expiresAt;
+      } catch { setText('studioResetCode', 'Không lấy được mã'); expiresAt = Date.now() + 10000; }
+      finally { loading = false; }
+    }
+    if (form.isConnected) setText('studioResetCountdown', `Đổi sau ${Math.max(0,Math.ceil((expiresAt-Date.now())/1000))} giây`);
+  };
+  clearInterval(studioResetTimer);
+  studioResetTimer = setInterval(tick, 300);
+  void tick();
+}
+
+async function prepareStudioReset(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  await action(async () => {
+    const result = await api('admin/reset/prepare', Object.fromEntries(new FormData(form)));
+    if (!form.isConnected) return;
+    clearInterval(studioResetTimer);
+    studioResetToken = result.token;
+    const filename = 'lamour-backup-before-reset-' + new Date().toISOString().slice(0,10) + '.json';
+    const url = URL.createObjectURL(new Blob([result.backup],{type:'application/json'}));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url),60000);
+    document.getElementById('studioResetModalBody').innerHTML = `<form onsubmit="commitStudioReset(event)">
+      <p>Chờ trình duyệt tải xong <b>${filename}</b>, sau đó chọn lại file đó bên dưới. Phiên xác nhận có hiệu lực 15 phút.</p>
+      <label>File sao lưu đã tải<input type="file" name="backup" accept=".json,application/json" required></label>
+      <div class="studio-modal-actions">${studioButton('Hủy', "closeModal('studioResetModal')", 'white')}
+      <button type="submit" class="studio-button red">Xác nhận xóa dữ liệu</button></div></form>`;
+  },form);
+}
+
+async function commitStudioReset(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  await action(async () => {
+    const token = studioResetToken;
+    const bytes = await form.elements.backup.files[0].arrayBuffer();
+    const digest = await crypto.subtle.digest('SHA-256',bytes);
+    const fileHash = Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
+    if (!form.isConnected || studioResetToken !== token) return;
+    await api('admin/reset/commit',{token,fileHash});
+    closeModal('studioResetModal');
+    clearPrivate();
+    await refreshState();
+    await publicRefresh();
+    switchAdminTab('dashboard');
+    showToast('Đã reset dữ liệu thư viện.');
+  },form);
+}
 
 function requestStudioDialog(title, message, options = {}) {
   if (studio.dialogResolve) studio.dialogResolve(null);
@@ -775,8 +899,10 @@ previewImport = async function (event) {
     const result = await api('admin/book-imports/validate', data);
     document.getElementById('studioImportPassword').value = '';
     importJob = result.job;
-    document.getElementById('importPreview').innerHTML = `<h3>Kết quả kiểm tra</h3><p>${result.rows.length} dòng · ${result.job.status === 'VALIDATED' ? 'Hợp lệ, sẵn sàng xem trước' : 'Cần sửa các dòng báo lỗi'}</p>
-      ${studioTable(['Sheet / dòng', 'Mã', 'Thay đổi / lỗi'], result.rows.map(row => `<tr><td>${esc(row.sheet)} / ${row.row}</td><td>${esc(row.data.code)}</td><td class="studio-import-diff">${row.errors.length ? esc(row.errors.join('; ')) : `<details><summary>${row.action === 'CREATE' ? 'Thêm mới' : 'Cập nhật'}</summary><pre>${esc(JSON.stringify(row.data, null, 2))}</pre></details>`}</td></tr>`).join(''))}
+    const skipped = result.rows.filter(row => row.action === 'SKIP' && !row.errors.length).length;
+    const fields = {title:'Tên sách',author:'Tác giả',category:'Thể loại',publisher:'Nhà xuất bản',language:'Ngôn ngữ',acquiredOn:'Ngày nhập',coverUrl:'Ảnh bìa',description:'Mô tả',year:'Năm xuất bản',isbn:'ISBN',price:'Giá bìa',showOnWeb:'Hiển thị web',pages:'Số trang',publishStatus:'Phát hành',languageGroup:'Nhóm đơn giá',condition:'Tình trạng',mediaType:'Loại',shelf:'Vị trí kệ',note:'Ghi chú'};
+    document.getElementById('importPreview').innerHTML = `<h3>Kết quả kiểm tra</h3><p>${result.rows.length} dòng · ${skipped} không đổi · ${result.job.status === 'INVALID' ? 'Cần sửa lỗi' : result.job.status === 'UNCHANGED' ? 'Không có gì cần cập nhật' : 'Sẵn sàng xác nhận'}</p>
+      ${skipped === result.rows.length ? '' : studioTable(['Sheet / dòng', 'Mã', 'Thay đổi / lỗi'], result.rows.filter(row => row.action !== 'SKIP' || row.errors.length).map(row => `<tr><td>${esc(row.sheet)} / ${row.row}</td><td>${esc(row.data.code)}</td><td class="studio-import-diff">${row.errors.length ? esc(row.errors.join('; ')) : row.action === 'CREATE' ? 'Thêm mới · ' + esc(row.data.title || row.data.titleCode) : `<ul>${row.changes.map(change=>`<li><b>${esc(fields[change.field])}:</b> ${esc(change.from ?? '—')} → ${esc(change.to ?? '—')}</li>`).join('')}</ul>`}</td></tr>`).join(''))}
       ${result.job.status === 'VALIDATED' ? studioButton('CẬP NHẬT DATA', 'confirmImport()', 'red') : ''}`;
   }, event.target);
 };
@@ -804,6 +930,58 @@ function studioHelp() {
   document.getElementById('studioHelpModalBody').innerHTML = `<p class="studio-subtle">Chọn tiêu đề để mở phần bạn cần.</p><div class="studio-guide-list">${sections.map(([title, detail]) =>
     `<details><summary>${esc(title)}</summary><p>${esc(detail)}</p></details>`).join('')}</div>`;
   openModal('studioHelpModal');
+}
+
+function openStudioOperations(kind) {
+  const config = {
+    readers:['Nhập Excel độc giả','Thêm hồ sơ mới hoặc cập nhật theo mã và VERSION từ file xuất.'],
+    loans:['Nhập Excel phiếu mượn','Nhập phiếu mượn mới cho độc giả và cuốn đã có trong hệ thống. Kiểm tra đúng hạn trả và số cọc đã thu.'],
+    transfers:['Nhập Excel chuyển ví','Ghi nhận chuyển tiền giữa các ví đã thực hiện. Các khoản cọc đi theo phiếu mượn.']
+  }[kind];
+  if (!config) return;
+  setText('studioOperationsModalTitle',config[0]);
+  document.getElementById('studioOperationsModalBody').innerHTML = `<p>${config[1]}</p>
+    <div class="studio-toolbar">${studioButton('Tải mẫu',`downloadStudioOperations('${kind}',true)`,'white')}
+    ${kind==='readers'?studioButton('Xuất danh sách',`downloadStudioOperations('${kind}',false)`,'white'):''}</div>
+    <form onsubmit="previewStudioOperations(event,'${kind}')">
+    <label>File Excel<input name="file" type="file" accept=".xlsx" required></label>
+    <label>Mật khẩu quản trị<input name="password" type="password" autocomplete="current-password" required></label>
+    <button type="submit" class="studio-button green">Kiểm tra &amp; xem trước</button></form>
+    <div id="studioOperationsPreview" aria-live="polite"></div>`;
+  openModal('studioOperationsModal');
+}
+
+function downloadStudioOperations(kind, template) {
+  return action(()=>download('admin/operations-excel/template?kind='+kind+'&template='+(template?'1':'0'),null,kind+'.xlsx'));
+}
+
+async function previewStudioOperations(event, kind) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const preview = document.getElementById('studioOperationsPreview');
+  preview.replaceChildren();
+  await action(async () => {
+    const data = new FormData(form);
+    data.set('kind',kind);
+    form.elements.password.value = '';
+    const result = await api('admin/operations-excel/preview',data);
+    if (!form.isConnected) return;
+    preview.innerHTML = `<h3>Kết quả kiểm tra</h3>
+      ${studioTable(['Dòng','Mã','Thay đổi / lỗi'],result.rows.map(row=>`<tr><td>${row.row}</td><td>${esc(row.reference)}</td><td>${esc(row.error || row.summary)}</td></tr>`).join(''))}
+      ${result.jobId? `<form class="studio-modal-actions" onsubmit="commitStudioOperations(event,'${result.jobId}')">
+      <label><input type="checkbox" required> Tôi đã đối chiếu các dòng và xác nhận dữ liệu đúng thực tế.</label>
+      <button type="submit" class="studio-button green">Xác nhận nhập</button></form>`:''}`;
+  },form);
+}
+
+async function commitStudioOperations(event, jobId) {
+  event.preventDefault();
+  await action(async()=>{
+    const result = await api('admin/operations-excel/commit',{jobId});
+    closeModal('studioOperationsModal');
+    await refreshState();
+    showToast(`Đã nhập ${result.imported} dòng.`);
+  },event.currentTarget);
 }
 
 let studioInbox = null;
@@ -1055,8 +1233,14 @@ openNewCopyModal = function () {
 
 function studioCopyStatus(id) {
   const copy = liveState.book_copies.find(item => item.id === id);
-  openStudioEditor('Trạng thái ' + copy.code, [
-    {name: 'status', label: 'Trạng thái kho', value: copy.status, options: Object.entries(copyLabels).filter(([status]) => status !== 'ON_LOAN')},
+  if (!copy) return;
+  openStudioEditor('Chỉnh cuốn ' + copy.code, [
+    {name: 'status', label: 'Trạng thái kho', value: copy.status, options: Object.entries(copyLabels).filter(([status]) => copy.status === 'ON_LOAN' ? status === 'ON_LOAN' : status !== 'ON_LOAN')},
+    {name:'condition',label:'Tình trạng vật lý',value:copy.physical_condition,required:true},
+    {name:'mediaType',label:'Loại',value:copy.media_type,required:true},
+    {name:'shelf',label:'Vị trí kệ',value:copy.shelf_location},
+    {name:'acquiredOn',label:'Ngày nhập',type:'date',value:copy.acquired_on,required:true},
+    {name:'note',label:'Ghi chú tình trạng',type:'textarea',value:copy.condition_note},
     {name: 'reason', label: 'Lý do đổi trạng thái', required: true, type: 'textarea'}
   ], input => api('admin/copies/status', {...input, id: copy.id, version: copy.version}));
 }
