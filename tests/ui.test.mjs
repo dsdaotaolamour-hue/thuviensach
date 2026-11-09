@@ -11,7 +11,7 @@ test('supplied UI initializes, protects admin route, uses real public DTO and re
   const data=String(url).endsWith('public/books')?[{code:'DS001',title:'<img src=x onerror=alert(1)>',authors:'A',category:'Da liễu',cover_url:'',short_description:'Mô tả',total:2,available:1}]:String(url).endsWith('public/content')?{settings:{libraryName:'Thư viện',zaloOaId:''},links:[],sections:[]}:null;
   return {ok:!!data,status:data?200:401,json:async()=>data?{data}:{error:{message:'Vui lòng đăng nhập.'}}};
  };
- vm.runInContext(await readFile('assets/js/app.js','utf8'),dom.getInternalVMContext());vm.runInContext(await readFile('assets/js/live.js','utf8'),dom.getInternalVMContext());
+ vm.runInContext(await readFile('assets/js/app.js','utf8'),dom.getInternalVMContext());vm.runInContext(await readFile('assets/js/live.js','utf8'),dom.getInternalVMContext());vm.runInContext(await readFile('assets/js/admin-studio.js','utf8'),dom.getInternalVMContext());
  await w.liveInitialize();
  assert.ok(w.document.getElementById('page-login').classList.contains('active'));
  assert.equal(w.liveSession,null);
@@ -39,7 +39,7 @@ test('authenticated empty system renders every admin tab without sample records 
  const state={today:'2026-11-05',settings:{libraryName:'Thư viện',address:'',hotline:'',zaloOaId:'',termsOnPrint:''},policy:{company_term_months:12,walkin_term_months:3,walkin_deposit_vnd:500000,late_fee_vnd_per_day:5000,replacement_technical_fee_vnd:20000,out_of_print_multiplier:3}};
  for(const n of ['book_titles','book_copies','readers','loans','loan_items','wallets','financial_transactions','cash_entries','deposit_entries','charges','charge_allocations','collection_contacts','print_documents','content_links','reminder_events','book_categories','audit_logs'])state[n]=[];
  w.fetch=async url=>({ok:true,status:200,json:async()=>({data:String(url).endsWith('public/books')?[]:String(url).endsWith('public/content')?{settings:state.settings,links:[],sections:[]}:String(url).endsWith('auth/session')?{email:'admin@example.test'}:state})});
- vm.runInContext(await readFile('assets/js/app.js','utf8'),dom.getInternalVMContext());vm.runInContext(await readFile('assets/js/live.js','utf8'),dom.getInternalVMContext());await w.liveInitialize();
+ vm.runInContext(await readFile('assets/js/app.js','utf8'),dom.getInternalVMContext());vm.runInContext(await readFile('assets/js/live.js','utf8'),dom.getInternalVMContext());vm.runInContext(await readFile('assets/js/admin-studio.js','utf8'),dom.getInternalVMContext());await w.liveInitialize();
  assert.ok(w.document.getElementById('page-admin').classList.contains('active'));
  for(const tab of ['dashboard','books','loans','readers','wallets','print','settings'])w.switchAdminTab(tab);
  assert.equal(w.document.getElementById('operationError').hidden,true,w.document.getElementById('operationError').textContent);

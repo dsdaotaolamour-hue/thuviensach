@@ -1,0 +1,883 @@
+/* Admin presentation built from the supplied Lamour screen designs. */
+const studio = {
+  tab: 'dashboard', bookId: null, readerId: null, readerTab: 'all',
+  loanRange: null, calendarMonth: null, rangeStart: null, dialogResolve: null, lastFocus: null
+};
+const studioTitles = {
+  dashboard: 'Dashboard', analytics: 'Phân tích', books: 'Đầu sách', readers: 'Độc giả',
+  loans: 'Phiếu mượn – Thu hồi sách', wallets: 'Ví tiền', notes: 'Ghi chú',
+  print: 'Phiếu in', settings: 'Cài đặt hệ thống'
+};
+
+function studioIcon(name) {
+  const paths = {
+    dashboard: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+    analytics: '<path d="M5 20V12M12 20V4M19 20V8"/>',
+    books: '<path d="M5 3h14v18H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM3 17h16M7 7h8"/>',
+    readers: '<circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',
+    loans: '<path d="M5 3h14v18l-3-2-4 2-4-2-3 2ZM8 7h8M8 11h6"/>',
+    wallets: '<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18M15 14h6"/>',
+    notes: '<rect x="4" y="4" width="16" height="18" rx="2"/><path d="M8 2v4M16 2v4M8 11h8M8 15h6"/>',
+    print: '<path d="M7 8V3h10v5M7 17H3V9h18v8h-4M7 14h10v7H7Z"/>',
+    settings: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/>',
+    search: '<circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/>',
+    bell: '<path d="M5 17h14l-2-4V8a5 5 0 0 0-10 0v5ZM10 21h4"/>',
+    calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 2v6M17 2v6M3 11h18"/>',
+    upload: '<path d="M3 17v4h18v-4M12 17V3M7 8l5-5 5 5"/>',
+    help: '<circle cx="12" cy="12" r="10"/><path d="M9 8a3 3 0 1 1 4 3v3M12 17v1"/>'
+  };
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.notes}</svg>`;
+}
+
+function studioButton(label, handler, style = '') {
+  return `<button type="button" class="studio-button ${style}" onclick="${handler}">${label}</button>`;
+}
+
+function studioTable(headers, body, id = '') {
+  return `<div class="studio-table-scroll"><table class="studio-table"><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody ${id ? `id="${id}"` : ''}>${body}</tbody></table></div>`;
+}
+
+function studioEmpty(message, columns) {
+  return `<tr><td colspan="${columns}" class="studio-empty">${esc(message)}</td></tr>`;
+}
+
+function studioSearch(id, placeholder, handler) {
+  return `<label class="studio-search">${studioIcon('search')}<input type="search" id="${id}" aria-label="${placeholder}" placeholder="${placeholder}" oninput="${handler}" /></label>`;
+}
+
+function studioSelect(id, label, options, handler) {
+  return `<select id="${id}" aria-label="${label}" onchange="${handler}">${options.map(([value, text]) => `<option value="${esc(value)}">${esc(text)}</option>`).join('')}</select>`;
+}
+
+const previousInstallExtra = installExtra;
+installExtra = function () {
+  previousInstallExtra();
+  installStudio();
+};
+
+function installStudio() {
+  if (document.getElementById('studioHeading')) return;
+  const admin = document.getElementById('page-admin');
+  admin.classList.add('studio-layout');
+  const sidebar = admin.querySelector('.admin-sidebar');
+  sidebar.innerHTML = `<a class="studio-brand" href="#/admin/dashboard"><span>L</span><strong>LAMOUR<small>THƯ VIỆN SÁCH NGÀNH SPA</small></strong></a>
+    <nav class="sidebar-nav" aria-label="Quản trị"><p class="studio-nav-label">Báo cáo</p>
+    ${studioNav(['dashboard', 'analytics'])}<p class="studio-nav-label">Thư viện sách</p>
+    ${studioNav(['books', 'readers', 'loans', 'wallets', 'notes'])}<p class="studio-nav-label">Hệ thống</p>
+    ${studioNav(['print', 'settings'])}</nav>
+    <div class="studio-account"><div class="studio-avatar">AD</div><strong id="activeAdminName">Quản trị viên</strong>
+    <small id="activeAdminRole">Quản trị thư viện</small>
+    ${studioButton('Xem website ↗', "navigateTo('home')", 'white')}${studioButton('Đăng xuất', 'handleLogout()', 'white')}</div>`;
+
+  admin.querySelector('.admin-topbar').innerHTML = `<button class="admin-menu-toggle" aria-label="Mở menu" onclick="toggleAdminSidebar()">☰</button>
+    <div class="studio-feature-search">${studioSearch('studioFeatureSearch', 'Tìm kiếm tính năng', 'searchStudioFeatures()')}<div id="studioSearchResults" hidden></div></div>
+    <div class="studio-top-icons"><button aria-label="Hướng dẫn" onclick="studioHelp()">${studioIcon('help')}</button>
+    <button aria-label="Thông báo nhắc hạn" onclick="studioNotifications()">${studioIcon('bell')}<i id="studioAlertCount" hidden></i></button>
+    <button aria-label="Tài khoản quản trị" onclick="switchAdminTab('settings')" class="studio-avatar">AD</button></div>`;
+
+  const content = admin.querySelector('.admin-content');
+  content.insertAdjacentHTML('afterbegin', `<div class="studio-heading" id="studioHeading"><div><h1 id="adminTabTitle">Dashboard</h1><p id="adminTabSubtitle">Home &gt; Dashboard</p></div>
+    <div class="studio-heading-actions"><span class="studio-date">${studioIcon('calendar')}<time id="studioToday"></time></span>
+    ${studioButton(`${studioIcon('upload')} Xuất dữ liệu`, 'studioExport()', 'green')}</div></div>`);
+
+  const importPanel = document.getElementById('importForm').closest('.panel-card');
+  importPanel.classList.add('studio-import-content');
+  const copiesPanel = document.getElementById('adminCopiesTableBody').closest('.panel-card');
+  const booksPane = document.getElementById('admin-tab-books');
+  booksPane.innerHTML = `<div class="studio-toolbar">${studioSearch('adminBookSearch', 'Tìm theo mã sách, tên sách hoặc tác giả', 'renderAdminBooks()')}
+    ${studioSelect('adminBookCategoryFilter', 'Chuyên mục', [['ALL', 'Tất cả chuyên mục']], 'renderAdminBooks()')}
+    ${studioSelect('adminBookAvailabilityFilter', 'Trạng thái sách', [['ALL', 'Tất cả trạng thái'], ['AVAILABLE', 'Có sẵn'], ['UNAVAILABLE', 'Hết sẵn sàng'], ['WEB', 'Hiển thị web'], ['ARCHIVED', 'Đã lưu trữ']], 'renderAdminBooks()')}
+    ${studioButton('Tìm kiếm', 'renderAdminBooks()', 'text')}${studioButton('Xóa lọc', 'clearBookFilters()', 'text danger-text')}
+    <div class="studio-toolbar-actions">${studioButton('＋ Thêm đầu sách', 'openNewBookModal()')}${studioButton('CẬP NHẬT DATA SÁCH', 'openStudioImport()', 'white')}</div></div>
+    <p id="adminBookResultCount" class="studio-result"></p><div class="studio-book-layout">
+    <section class="studio-card studio-list">${studioTable(['Mã', 'Tên sách', 'Tác giả', 'Thể loại', 'Giá bìa', 'Tổng', 'Có sẵn', 'Đang mượn', ''], '', 'adminBooksTableBody')}</section>
+    <aside class="studio-card studio-book-detail" id="studioBookDetail"></aside></div>
+    <details class="studio-copy-details"><summary>Quản lý từng cuốn sách</summary><div id="studioCopyPanel"></div></details>`;
+  document.getElementById('studioCopyPanel').append(copiesPanel);
+  createStudioOverlay('studioImportModal', 'Cập nhật data sách', importPanel);
+  const password = document.createElement('label');
+  password.innerHTML = 'Mật khẩu xác nhận<input name="password" id="studioImportPassword" type="password" autocomplete="current-password" required placeholder="Nhập mật khẩu quản trị để tải file lên" />';
+  document.getElementById('importForm').insertBefore(password, document.getElementById('importForm').querySelector('button'));
+  const drop = document.createElement('label');
+  drop.className = 'studio-dropzone';
+  drop.htmlFor = 'importFile';
+  drop.tabIndex = 0;
+  drop.innerHTML = `${studioIcon('upload')}<strong>Kéo thả file Excel tại đây hoặc bấm để chọn</strong><span id="studioImportFilename">File .xlsx, tối đa 5 MB</span>`;
+  const fileInput = document.getElementById('importFile');
+  fileInput.parentElement.before(drop);
+  fileInput.parentElement.classList.add('studio-file-input');
+  fileInput.addEventListener('change', () => setText('studioImportFilename', fileInput.files[0]?.name || 'Chưa chọn file'));
+  drop.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); fileInput.click(); } });
+  for (const name of ['dragover', 'dragleave', 'drop']) drop.addEventListener(name, event => {
+    event.preventDefault();
+    drop.classList.toggle('dragging', name === 'dragover');
+    if (name === 'drop' && event.dataTransfer.files.length) {
+      fileInput.files = event.dataTransfer.files;
+      fileInput.dispatchEvent(new Event('change'));
+    }
+  });
+  importPanel.insertAdjacentHTML('beforeend', '<p class="studio-import-warning"><b>Lưu ý</b><br>Dùng mẫu Excel của hệ thống. Chọn Thêm mới cho sách mới hoặc Cập nhật cho file xuất có VERSION. Kiểm tra lỗi và thay đổi trước khi xác nhận nhập.</p>');
+
+  buildStudioDashboard();
+  buildStudioReaders();
+  buildStudioLoans();
+  for (const [tab, title] of [['analytics', 'Phân tích'], ['notes', 'Ghi chú']]) {
+    content.insertAdjacentHTML('beforeend', `<section id="admin-tab-${tab}" class="admin-tab-pane"><div id="studio${tab}"></div></section>`);
+  }
+  const wallets = document.getElementById('admin-tab-wallets');
+  wallets.classList.add('studio-wallets');
+  wallets.insertAdjacentHTML('afterbegin', '<div id="studioWalletOverview"></div>');
+  const walletPanels = wallets.querySelectorAll(':scope > .panel-card');
+  for (const [panel, label] of [[walletPanels[0], 'Chi tiết tài khoản ví'], [walletPanels[2], 'Chuyển tiền và thêm ví'], [walletPanels[3], 'Quyết toán và đảo giao dịch']]) {
+    if (!panel) continue;
+    const group = document.createElement('details');
+    group.className = 'studio-wallet-group';
+    const summary = document.createElement('summary');
+    summary.textContent = label;
+    panel.replaceWith(group);
+    group.append(summary, panel);
+    if (walletPanels[1]) wallets.insertBefore(group, walletPanels[1]);
+  }
+  document.getElementById('studionotes').innerHTML = `<header class="studio-section-banner">
+    <div><small>CÔNG VIỆC NỘI BỘ</small><h2>Sổ ghi chú thư viện</h2><p>Theo dõi việc cần làm và xem lại những việc đã hoàn thành.</p></div>
+    ${studioButton('＋ Thêm ghi chú', 'editStudioNote()', 'green')}
+  </header><div class="studio-toolbar"><label class="studio-search">${studioIcon('search')}<input type="search" id="studioNoteSearch" aria-label="Tìm ghi chú" placeholder="Tìm theo tiêu đề hoặc nội dung" oninput="renderStudioNotes()"></label></div>
+  <div id="studioNoteBoard" class="studio-note-board"></div>`;
+  createStudioOverlay('studioDialog', 'Thông báo');
+  createStudioOverlay('studioEditor', 'Chỉnh sửa');
+  createStudioOverlay('studioCalendar', 'Chọn khoảng ngày');
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      const open = [...document.querySelectorAll('.modal-overlay.open')].at(-1);
+      if (open) closeModal(open.id);
+    }
+    const dialog = [...document.querySelectorAll('.modal-overlay.open')].at(-1);
+    if (event.key !== 'Tab' || !dialog) return;
+    const controls = [...dialog.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"]')].filter(el => !el.hidden);
+    const first = controls[0], last = controls.at(-1);
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+    if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  });
+  for (const overlay of document.querySelectorAll('.modal-overlay')) {
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.addEventListener('click', event => { if (event.target === overlay) closeModal(overlay.id); });
+  }
+  switchAdminTab('dashboard', false);
+}
+
+function studioNav(tabs) {
+  return tabs.map(tab => `<button class="side-link" data-tab="${tab}" onclick="switchAdminTab('${tab}')"><span class="side-icon">${studioIcon(tab)}</span><span>${studioTitles[tab]}</span></button>`).join('');
+}
+
+function createStudioOverlay(id, title, child) {
+  const overlay = document.createElement('div');
+  overlay.id = id;
+  overlay.className = 'modal-overlay studio-overlay';
+  overlay.setAttribute('aria-hidden', 'true');
+  overlay.innerHTML = `<div class="modal-dialog"><header class="modal-header"><h2 id="${id}Title">${title}</h2><button class="modal-close" aria-label="Đóng" onclick="closeModal('${id}')">×</button></header><div class="modal-body" id="${id}Body"></div></div>`;
+  overlay.setAttribute('aria-labelledby', id + 'Title');
+  if (child) overlay.querySelector('.modal-body').append(child);
+  document.body.append(overlay);
+}
+
+switchAdminTab = function (tab, syncUrl = true) {
+  if (!studioTitles[tab]) tab = 'dashboard';
+  studio.tab = tab;
+  document.querySelectorAll('.side-link').forEach(button => {
+    button.classList.toggle('active', button.dataset.tab === tab);
+    button.setAttribute('aria-current', button.dataset.tab === tab ? 'page' : 'false');
+  });
+  document.querySelectorAll('.admin-tab-pane').forEach(pane => pane.classList.toggle('active', pane.id === 'admin-tab-' + tab));
+  setText('adminTabTitle', studioTitles[tab]);
+  setText('adminTabSubtitle', 'Home > ' + studioTitles[tab]);
+  setText('studioToday', new Intl.DateTimeFormat('vi-VN', {dateStyle: 'full', timeZone: 'Asia/Ho_Chi_Minh'}).format(new Date()));
+  renderAllAdminViews();
+  renderStudioExtras();
+  document.querySelector('.admin-sidebar')?.classList.remove('open');
+  if (syncUrl && document.getElementById('page-admin').classList.contains('active')) history.replaceState(null, '', '#/admin/' + tab);
+};
+
+function buildStudioDashboard() {
+  const pane = document.getElementById('admin-tab-dashboard');
+  const reminders = document.getElementById('reminderList').closest('.panel-card');
+  pane.innerHTML = `<section class="studio-welcome studio-card"><div><h2>Chào quản trị viên, đây là tình hình thư viện</h2><p>Ưu tiên các phiếu quá hạn và giao dịch đang chờ đối soát trước khi bàn giao sách mới.</p></div>
+    <div class="studio-quick-actions"><button onclick="openNewLoanModal()"><span>↗</span><b>Lập phiếu mượn</b><small>Chọn khách và chọn sách</small></button>
+    <button onclick="switchAdminTab('loans');setLoanQuickFilter('Quá hạn')"><span>!</span><b>Xử lý quá hạn</b><small>Xem phiếu cần thu hồi</small></button>
+    <button onclick="switchAdminTab('readers')"><span>⌕</span><b>Tra cứu độc giả</b><small>Tìm theo tên hoặc số điện thoại</small></button></div></section>
+    <div id="adminKpiGrid" class="studio-kpis"></div>
+    <div class="studio-dashboard-columns"><section class="studio-card"><header class="studio-panel-heading"><h2>Số dư &amp; Quỹ tiền cọc đang giữ</h2>${studioButton('Chi tiết ví →', "switchAdminTab('wallets')", 'green')}</header>
+    ${studioTable(['Mã ví', 'Ví / Hình thức', 'Số dư', 'Cọc đang giữ', 'Trạng thái'], '', 'dashboardWalletBody')}</section>
+    <section class="studio-card"><header class="studio-panel-heading"><h2>Theo dõi nhắc hạn &amp; Quá hạn</h2></header><div class="studio-card-padding">${studioButton('Tất cả phiếu →', "switchAdminTab('loans')", 'white')}<div id="dashboardAlertsList"></div></div></section></div>
+    <div class="studio-dashboard-bottom"><section class="studio-card"><header class="studio-panel-heading"><h2>Khách hoạt động nhiều</h2>${studioButton('Xem chi tiết →', "switchAdminTab('readers')", 'white')}</header><div id="studioTopReaders"></div></section>
+    <section class="studio-card"><header class="studio-panel-heading"><h2>Logs</h2>${studioButton('Xem nhật ký →', "switchAdminTab('settings')", 'text')}</header><div id="studioRecentLogs" class="studio-card-padding"></div></section></div>`;
+  const details = document.createElement('details');
+  details.className = 'studio-reminder-details';
+  details.innerHTML = '<summary>Nhắc hạn và lịch sử liên hệ thu hồi</summary>';
+  details.append(reminders);
+  pane.append(details);
+}
+
+function buildStudioReaders() {
+  document.getElementById('admin-tab-readers').innerHTML = `<div class="studio-toolbar">${studioSearch('adminReaderSearch', 'Tìm độc giả theo tên, mã hoặc số điện thoại', 'renderAdminReaders()')}
+    ${studioSelect('adminReaderTypeFilter', 'Nhóm khách', [['ALL', 'Tất cả nhóm khách'], ...Object.values(readerLabels).map(label => [label, label])], 'renderAdminReaders()')}
+    ${studioSelect('adminReaderLoanFilter', 'Trạng thái mượn', [['ALL', 'Tất cả trạng thái'], ['BORROWING', 'Đang mượn'], ['OVERDUE', 'Quá hạn'], ['NO_LOAN', 'Chưa có phiếu mở']], 'renderAdminReaders()')}
+    ${studioButton('Tìm kiếm', 'renderAdminReaders()', 'text')}${studioButton('Xóa lọc', 'clearReaderFilters()', 'text danger-text')}
+    <div class="studio-toolbar-actions">${studioButton('＋ Thêm độc giả', 'openNewReaderModal()', 'green')}</div></div>
+    <p id="adminReaderResultCount" class="studio-result"></p><div class="studio-reader-layout">
+    <section class="studio-card studio-list">${studioTable(['Mã', 'Họ và tên', 'Số điện thoại', ''], '', 'adminReadersTableBody')}</section>
+    <div id="studioReaderDetail"></div></div>`;
+}
+
+function buildStudioLoans() {
+  document.getElementById('admin-tab-loans').innerHTML = `<div class="studio-toolbar">${studioSearch('adminLoanSearch', 'Tìm mã phiếu, độc giả, điện thoại hoặc tên sách', 'renderAdminLoans()')}
+    ${studioButton(`${studioIcon('calendar')} Tất cả ngày`, 'openStudioCalendar()', 'white')}
+    ${studioSelect('adminLoanFilter', 'Trạng thái phiếu', [['ALL', 'Tất cả trạng thái'], ['Đang mượn', 'Đang mượn'], ['Quá hạn', 'Quá hạn'], ['Chờ quyết toán', 'Chờ quyết toán'], ['Chờ sách thay thế', 'Chờ thay thế'], ['Đã trả – Đã xử lý', 'Đã xử lý']], 'renderAdminLoans()')}
+    ${studioSelect('adminLoanReaderTypeFilter', 'Nhóm khách', [['ALL', 'Tất cả nhóm khách'], ...Object.values(readerLabels).map(label => [label, label])], 'renderAdminLoans()')}
+    ${studioButton('Tìm kiếm', 'renderAdminLoans()', 'text')}${studioButton('Xóa lọc', 'clearStudioLoanFilters()', 'text danger-text')}
+    <div class="studio-toolbar-actions">${studioButton('＋ THÊM PHIẾU MỚI', 'openNewLoanModal()', 'green')}</div></div>
+    <p id="studioLoanRangeLabel" class="studio-result"></p><div class="studio-loan-counts" id="loanStatusTabs"><span>Tất cả <b id="loanCountAll">0</b></span><span>Đang mở <b id="loanCountActive">0</b></span><span>Quá hạn <b id="loanCountOverdue">0</b></span><span>Đã xử lý <b id="loanCountDone">0</b></span></div>
+    <p id="adminLoanResultCount" class="studio-result"></p><section class="studio-card studio-loan-list">
+    ${studioTable(['Mã phiếu', 'Họ và tên', 'Số điện thoại', 'Cuốn sách', 'Ngày mượn', 'Hạn trả', 'Cọc đang giữ', 'Trạng thái', 'Thao tác'], '', 'adminLoansTableBody')}</section>`;
+}
+
+function selectedTitle() { return liveState?.book_titles.find(book => book.id === studio.bookId); }
+function selectedReader() { return liveState?.readers.find(reader => reader.id === studio.readerId); }
+
+renderAdminBooks = function () {
+  if (!liveState || !document.getElementById('studioBookDetail')) return;
+  const categorySelect = document.getElementById('adminBookCategoryFilter');
+  const selectedCategory = categorySelect.value;
+  categorySelect.innerHTML = '<option value="ALL">Tất cả chuyên mục</option>' + liveState.book_categories.map(category => `<option value="${category.id}">${esc(category.name)}</option>`).join('');
+  categorySelect.value = [...categorySelect.options].some(option => option.value === selectedCategory) ? selectedCategory : 'ALL';
+  const query = normalizeSearch(val('adminBookSearch'));
+  const status = val('adminBookAvailabilityFilter');
+  const books = liveState.book_titles.filter(book => {
+    const counts = getBookCounts(book.code);
+    return (status === 'ARCHIVED' ? !!book.archived_at : !book.archived_at)
+      && (!query || normalizeSearch(`${book.code} ${book.title} ${book.authors}`).includes(query))
+      && (categorySelect.value === 'ALL' || categorySelect.value === book.category_id)
+      && (['ALL', 'ARCHIVED'].includes(status) || status === 'WEB' && book.show_on_web || status === 'AVAILABLE' && counts.available > 0 || status === 'UNAVAILABLE' && counts.available === 0);
+  });
+  if (!books.some(book => book.id === studio.bookId)) studio.bookId = books[0]?.id || null;
+  setText('adminBookResultCount', `${books.length} đầu sách`);
+  document.getElementById('adminBooksTableBody').innerHTML = books.map(book => {
+    const counts = getBookCounts(book.code);
+    const category = liveState.book_categories.find(item => item.id === book.category_id);
+    return `<tr class="${book.id === studio.bookId ? 'selected' : ''}"><td>${esc(book.code)}</td><td class="studio-title-cell" title="${esc(book.title)}">${esc(book.title)}</td><td>${esc(book.authors)}</td><td>${esc(category?.name)}</td><td>${book.cover_price_vnd == null ? 'Chưa rõ' : formatCurrency(book.cover_price_vnd)}</td><td>${counts.total}</td><td>${counts.available}</td><td>${counts.borrowed}</td><td>${studioButton('Thao tác', `selectStudioBook('${book.id}')`, 'mini white')}</td></tr>`;
+  }).join('') || studioEmpty('Chưa có đầu sách phù hợp. Thêm sách hoặc nhập Excel để bắt đầu.', 9);
+  renderStudioBookDetail();
+  renderStudioCopies();
+};
+
+function selectStudioBook(id) { studio.bookId = id; renderAdminBooks(); }
+
+function renderStudioBookDetail() {
+  const book = selectedTitle();
+  const target = document.getElementById('studioBookDetail');
+  if (!book) { target.innerHTML = '<div class="studio-empty">Chọn một đầu sách để xem thông tin.</div>'; return; }
+  const category = liveState.book_categories.find(item => item.id === book.category_id);
+  target.innerHTML = `<div class="studio-book-summary"><div class="studio-book-cover">${bookCover({title: esc(book.title), author: esc(book.authors), coverUrl: esc(book.cover_url)})}</div>
+    <div><span class="studio-tag">Mã: ${esc(book.code)}</span><h2>${esc(book.title)}</h2><p><b>Tác giả</b> ${esc(book.authors) || 'Chưa cập nhật'}</p><span class="studio-tag solid">Số lượng tồn: ${getBookCounts(book.code).available}</span></div></div>
+    <dl class="studio-book-meta"><div><dt>Nhà xuất bản</dt><dd>${esc(book.publisher) || 'Chưa rõ'}</dd></div><div><dt>Thể loại</dt><dd>${esc(category?.name)}</dd></div><div><dt>Giá bìa</dt><dd>${book.cover_price_vnd == null ? 'Chưa rõ' : formatCurrency(book.cover_price_vnd)}</dd></div><div><dt>Ngôn ngữ</dt><dd>${esc(book.language)}</dd></div></dl>
+    <h3>Nội dung sách</h3><p class="studio-description">${esc(book.description || book.short_description) || 'Nội dung đang được cập nhật.'}</p>
+    <p class="studio-subtle">${book.archived_at ? 'Đã lưu trữ' : book.show_on_web ? 'Đang hiển thị trên website' : 'Đang ẩn trên website'}</p>
+    <div class="studio-detail-actions">${studioButton('Chỉnh sửa', 'editStudioBook()', 'dark-green')}${studioButton(book.show_on_web ? 'Khóa hiển thị' : 'Mở hiển thị', 'toggleStudioBook()', 'yellow')}${studioButton('Xóa sách', 'archiveStudioBook()', 'red')}</div>`;
+}
+
+function renderStudioCopies() {
+  const query = normalizeSearch(val('adminCopySearch'));
+  const copies = liveState.book_copies.filter(copy => (!query || normalizeSearch(`${copy.code} ${copy.shelf_location} ${copy.condition_note}`).includes(query))
+    && (val('adminCopyStatusFilter') === 'ALL' || copyLabels[copy.status] === val('adminCopyStatusFilter'))
+    && (val('adminCopyConditionFilter') === 'ALL' || copy.physical_condition === val('adminCopyConditionFilter')));
+  setText('adminCopyResultCount', `${copies.length} cuốn`);
+  document.getElementById('adminCopiesTableBody').innerHTML = copies.map(copy => {
+    const book = liveState.book_titles.find(item => item.id === copy.title_id);
+    return `<tr><td>${esc(copy.code)}</td><td>${esc(book?.code)}</td><td>${esc(book?.title)}</td><td>${esc(copy.physical_condition)}</td><td>${copyLabels[copy.status]}</td><td>${esc(copy.shelf_location)}</td><td>${esc(copy.condition_note)}</td><td>${studioButton('Đổi trạng thái', `studioCopyStatus('${copy.id}')`, 'mini white')}</td></tr>`;
+  }).join('') || studioEmpty('Chưa có cuốn phù hợp.', 8);
+}
+
+renderAdminReaders = function () {
+  if (!liveState || !document.getElementById('studioReaderDetail')) return;
+  const query = normalizeSearch(val('adminReaderSearch'));
+  const readers = liveState.readers.filter(reader => {
+    const loans = liveState.loans.filter(loan => loan.reader_id === reader.id);
+    const open = liveState.loan_items.filter(item => loans.some(loan => loan.id === item.loan_id) && item.resolution_status === 'OPEN');
+    return !reader.archived_at && (!query || normalizeSearch(`${reader.code} ${reader.full_name} ${reader.phone_display}`).includes(query))
+      && (val('adminReaderTypeFilter') === 'ALL' || readerLabels[reader.reader_category] === val('adminReaderTypeFilter'))
+      && (val('adminReaderLoanFilter') === 'ALL' || val('adminReaderLoanFilter') === 'BORROWING' && open.length || val('adminReaderLoanFilter') === 'OVERDUE' && open.some(item => item.due_on < liveState.today) || val('adminReaderLoanFilter') === 'NO_LOAN' && !loans.some(loan => loan.status !== 'COMPLETED'));
+  });
+  if (!readers.some(reader => reader.id === studio.readerId)) studio.readerId = readers[0]?.id || null;
+  setText('adminReaderResultCount', `${readers.length} độc giả`);
+  document.getElementById('adminReadersTableBody').innerHTML = readers.map(reader => `<tr class="${reader.id === studio.readerId ? 'selected' : ''}"><td>${esc(reader.code)}</td><td>${esc(reader.full_name)}</td><td>${esc(reader.phone_display)}</td><td>${studioButton('Thao tác', `selectStudioReader('${reader.id}')`, 'mini white')}</td></tr>`).join('') || studioEmpty('Chưa có độc giả phù hợp.', 4);
+  renderStudioReaderDetail();
+};
+
+function selectStudioReader(id) { studio.readerId = id; studio.readerTab = 'all'; renderAdminReaders(); }
+
+function readerItems(readerId) {
+  const loans = liveState.loans.filter(loan => loan.reader_id === readerId);
+  return liveState.loan_items.filter(item => loans.some(loan => loan.id === item.loan_id));
+}
+
+function itemDeposit(itemId) {
+  return liveState.deposit_entries.filter(entry => entry.loan_item_id === itemId).reduce((sum, entry) => sum + (entry.direction === 'INCREASE' ? 1 : -1) * Number(entry.amount_vnd), 0);
+}
+
+function renderStudioReaderDetail() {
+  const reader = selectedReader();
+  const target = document.getElementById('studioReaderDetail');
+  if (!reader) { target.innerHTML = '<div class="studio-card studio-empty">Chọn một độc giả để xem hồ sơ.</div>'; return; }
+  const items = readerItems(reader.id);
+  const held = items.reduce((sum, item) => sum + itemDeposit(item.id), 0);
+  const deposits = liveState.deposit_entries.filter(entry => items.some(item => item.id === entry.loan_item_id) && entry.direction === 'INCREASE');
+  const depositTimes = liveState.financial_transactions.filter(tx => deposits.some(entry => entry.transaction_id === tx.id)).map(tx => String(tx.occurred_at).slice(0, 10)).sort();
+  const initials = reader.full_name.split(/\s+/).slice(-2).map(part => part[0]).join('').toUpperCase();
+  target.innerHTML = `<header class="studio-reader-heading"><h2>${esc(reader.code)} <span class="studio-tag solid">${reader.account_status === 'Hoạt động' ? 'Hoạt động' : 'Tạm khóa'}</span></h2><div class="studio-detail-actions">${studioButton('Chỉnh sửa', 'editStudioReader()', 'dark-green')}${studioButton(reader.account_status === 'Hoạt động' ? 'Khóa khách' : 'Mở khóa', 'toggleStudioReader()', 'yellow')}${studioButton('Xóa khách', 'archiveStudioReader()', 'red')}</div></header>
+    <div class="studio-reader-cards"><section class="studio-card studio-profile"><div class="studio-profile-avatar">${esc(initials)}</div><span class="studio-tag solid">${readerLabels[reader.reader_category]}</span><h2>${esc(reader.full_name)}</h2><p>${esc(reader.email) || 'Chưa có email'}</p><b>${esc(reader.phone_display)}</b></section>
+    <section class="studio-card studio-personal"><h3>Thông tin cá nhân</h3><div><small>Địa chỉ</small><p>${esc(reader.address) || 'Chưa cập nhật'}</p></div><div><small>Cơ sở / Đơn vị</small><p>${esc(reader.organization) || 'Chưa cập nhật'}</p></div><div><small>Ghi chú</small><p>${esc(reader.notes) || 'Chưa có ghi chú'}</p></div></section>
+    <div class="studio-reader-stats"><section class="studio-card"><h3>Số tiền đang cọc</h3><strong>${formatCurrency(held)}</strong>${held && depositTimes.length ? `<p>Từ ngày ${esc(depositTimes[0])}</p>` : '<p>Hiện không giữ cọc</p>'}</section><section class="studio-card"><h3>Tổng sách đã mượn</h3><strong>${items.length} <small>quyển</small></strong></section></div></div>
+    <nav class="studio-reader-tabs" aria-label="Lịch sử độc giả">${[['all', 'Tất cả giao dịch'], ['returned', 'Đã hoàn trả sách'], ['open', 'Đang mượn'], ['deposit', 'Lịch sử cọc'], ['reverse', 'Giao dịch đảo']].map(([id, label]) => studioButton(label, `studioReaderHistory('${id}')`, studio.readerTab === id ? 'active text' : 'text')).join('')}</nav>
+    <section class="studio-card studio-reader-history" id="studioReaderHistory"></section>`;
+  renderStudioReaderHistory();
+}
+
+function studioReaderHistory(tab) { studio.readerTab = tab; renderStudioReaderDetail(); }
+
+function renderStudioReaderHistory() {
+  const reader = selectedReader();
+  if (!reader) return;
+  const items = readerItems(reader.id);
+  const target = document.getElementById('studioReaderHistory');
+  if (['all', 'deposit', 'reverse'].includes(studio.readerTab)) {
+    const transactions = liveState.financial_transactions.filter(tx => tx.reader_id === reader.id
+      && (studio.readerTab !== 'deposit' || liveState.deposit_entries.some(entry => entry.transaction_id === tx.id))
+      && (studio.readerTab !== 'reverse' || tx.reversal_of_id));
+    target.innerHTML = studioTable(['Mã giao dịch', 'Ngày', 'Hoạt động', 'Số tiền', 'Ghi chú'], transactions.map(tx => `<tr><td>${esc(tx.code)}</td><td>${esc(String(tx.occurred_at).slice(0, 10))}</td><td>${esc(typeLabels[tx.type] || tx.type)}</td><td>${formatCurrency(tx.amount_vnd)}</td><td>${esc(tx.reason)}</td></tr>`).join('') || studioEmpty('Chưa có giao dịch trong nhóm này.', 5));
+    return;
+  }
+  const visible = items.filter(item => studio.readerTab === 'open' ? item.resolution_status === 'OPEN' : !!item.returned_on);
+  target.innerHTML = studioTable(['Mã phiếu', 'Cuốn sách', 'Hạn trả', 'Ngày trả', 'Trạng thái'], visible.map(item => {
+    const loan = liveState.loans.find(loan => loan.id === item.loan_id);
+    const copy = liveState.book_copies.find(copy => copy.id === item.copy_id);
+    return `<tr><td>${esc(loan.code)}</td><td>${esc(copy.code)}<small>${esc(item.title_snapshot.title)}</small></td><td>${item.due_on}</td><td>${item.returned_on || '—'}</td><td>${studioItemStatus(item)}</td></tr>`;
+  }).join('') || studioEmpty('Chưa có sách trong nhóm này.', 5));
+}
+
+function studioItemStatus(item) {
+  if (item.resolution_status === 'RESOLVED') return 'Đã trả – Đã xử lý';
+  if (item.resolution_status === 'RETURNED') return 'Chờ quyết toán';
+  if (item.resolution_status === 'LOST_PENDING') return 'Chờ sách thay thế';
+  return item.due_on < liveState.today ? 'Quá hạn' : 'Đang mượn';
+}
+
+renderAdminLoans = function () {
+  if (!liveState) return;
+  const query = normalizeSearch(val('adminLoanSearch'));
+  const items = liveState.loan_items.filter(item => {
+    const loan = liveState.loans.find(loan => loan.id === item.loan_id);
+    const reader = liveState.readers.find(reader => reader.id === loan.reader_id);
+    const copy = liveState.book_copies.find(copy => copy.id === item.copy_id);
+    return (!query || normalizeSearch(`${loan.code} ${reader.full_name} ${reader.phone_display} ${copy.code} ${item.title_snapshot.title}`).includes(query))
+      && (val('adminLoanFilter') === 'ALL' || studioItemStatus(item) === val('adminLoanFilter'))
+      && (val('adminLoanReaderTypeFilter') === 'ALL' || readerLabels[reader.reader_category] === val('adminLoanReaderTypeFilter'))
+      && (!studio.loanRange || loan.borrowed_on >= studio.loanRange[0] && loan.borrowed_on <= studio.loanRange[1]);
+  });
+  setText('loanCountAll', liveState.loans.length);
+  setText('loanCountActive', liveState.loans.filter(loan => loan.status !== 'COMPLETED').length);
+  setText('loanCountOverdue', new Set(liveState.loan_items.filter(item => studioItemStatus(item) === 'Quá hạn').map(item => item.loan_id)).size);
+  setText('loanCountDone', liveState.loans.filter(loan => loan.status === 'COMPLETED').length);
+  setText('adminLoanResultCount', `${items.length} cuốn trên ${new Set(items.map(item => item.loan_id)).size} phiếu`);
+  setText('studioLoanRangeLabel', studio.loanRange ? `Ngày mượn từ ${studio.loanRange[0]} đến ${studio.loanRange[1]}` : 'Đang xem tất cả ngày mượn');
+  document.getElementById('adminLoansTableBody').innerHTML = items.map(item => {
+    const loan = liveState.loans.find(loan => loan.id === item.loan_id);
+    const reader = liveState.readers.find(reader => reader.id === loan.reader_id);
+    const copy = liveState.book_copies.find(copy => copy.id === item.copy_id);
+    const status = studioItemStatus(item);
+    let operation = studioButton('Trả / Báo mất', `openReturnModal('${item.id}')`, 'mini dark-green');
+    if (item.resolution_status === 'RESOLVED') operation = studioButton('In phiếu', `previewLoanInPrintTab('${item.id}')`, 'mini white');
+    if (item.resolution_status === 'RETURNED') operation = studioButton('Quyết toán', `settlePendingUi('${item.id}')`, 'mini dark-green');
+    if (item.resolution_status === 'LOST_PENDING') operation = studioButton('Nhận thay thế', `receiveReplacement('${item.id}')`, 'mini dark-green') + studioButton('Quyết toán', `settlePendingUi('${item.id}')`, 'mini white');
+    return `<tr><td>${esc(loan.code)}</td><td>${esc(reader.full_name)}</td><td>${esc(reader.phone_display)}</td><td>${esc(copy.code)}<small>${esc(item.title_snapshot.title)}</small></td><td>${loan.borrowed_on}</td><td>${item.due_on}</td><td>${formatCurrency(itemDeposit(item.id))}</td><td><span class="studio-tag ${status === 'Quá hạn' ? 'overdue' : ''}">${status}</span></td><td class="studio-row-actions">${operation}${studioButton('Liên hệ', `recordContact('${item.id}')`, 'mini white')}</td></tr>`;
+  }).join('') || studioEmpty('Chưa có phiếu phù hợp với bộ lọc.', 9);
+};
+
+function clearStudioLoanFilters() {
+  studio.loanRange = null;
+  for (const id of ['adminLoanFilter', 'adminLoanReaderTypeFilter']) document.getElementById(id).value = 'ALL';
+  document.getElementById('adminLoanSearch').value = '';
+  renderAdminLoans();
+}
+
+const previousRenderDashboard = renderAdminDashboard;
+renderAdminDashboard = function () {
+  if (!liveState) return;
+  previousRenderDashboard();
+  const lastMetric = document.getElementById('adminKpiGrid').lastElementChild;
+  lastMetric?.remove();
+  const top = [...liveState.readers].map(reader => ({reader, count: readerItems(reader.id).length})).filter(item => item.count).sort((a, b) => b.count - a.count).slice(0, 5);
+  document.getElementById('studioTopReaders').innerHTML = studioTable(['Mã', 'Tên khách', 'Sách đã mượn', 'Loại'], top.map(({reader, count}) => `<tr><td>${esc(reader.code)}</td><td><button class="studio-link" onclick="studio.readerId='${reader.id}';switchAdminTab('readers')">${esc(reader.full_name)}</button></td><td>${count} cuốn</td><td>${readerLabels[reader.reader_category]}</td></tr>`).join('') || studioEmpty('Chưa có lịch sử mượn sách.', 4));
+  document.getElementById('studioRecentLogs').innerHTML = liveState.audit_logs.slice(0, 5).map(log => `<div class="studio-log"><span></span><div><b>${esc(log.action)}</b><small>${esc(log.target_table)} · ${new Date(log.occurred_at).toLocaleString('vi-VN')}</small></div></div>`).join('') || '<p class="studio-subtle">Chưa có nhật ký.</p>';
+  const count = liveState.loan_items.filter(item => item.resolution_status === 'OPEN' && addMonthsToDateStr(item.due_on, -1) <= liveState.today).length;
+  const badge = document.getElementById('studioAlertCount');
+  badge.hidden = !count;
+  badge.textContent = count;
+};
+
+function renderStudioExtras() {
+  if (!liveState) return;
+  renderStudioWalletOverview();
+  renderStudioNotes();
+  renderStudioAnalytics();
+}
+
+function renderStudioWalletOverview() {
+  const wallets = liveState.wallets.map(wallet => ({
+    wallet,
+    ...getWalletStats(esc(wallet.display_name))
+  }));
+  const totals = [
+    ['Tổng số dư', formatCurrency(wallets.reduce((sum, entry) => sum + entry.balance, 0))],
+    ['Tiền cọc đang giữ', formatCurrency(wallets.reduce((sum, entry) => sum + entry.depositHeld, 0))],
+    ['Ví đang hoạt động', wallets.filter(({wallet}) => wallet.active).length]
+  ];
+  document.getElementById('studioWalletOverview').innerHTML = `<header class="studio-section-banner">
+    <div><small>QUẢN LÝ DÒNG TIỀN</small><h2>Ví thanh toán &amp; quỹ cọc</h2><p>Xem số dư, tiền cọc và lịch sử giao dịch của thư viện.</p></div>
+    <div class="studio-banner-icon">${studioIcon('wallets')}</div>
+  </header><div class="studio-wallet-totals">${totals.map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`).join('')}</div>
+  <div class="studio-wallet-grid">${wallets.map(({wallet, balance, depositHeld}) => `<article class="studio-card studio-wallet-card">
+    <header><span class="studio-wallet-icon">${studioIcon('wallets')}</span><span class="studio-tag">${wallet.active ? 'Đang hoạt động' : 'Ngừng hoạt động'}</span></header>
+    <small>${esc(wallet.code)}</small><h3>${esc(wallet.display_name)}</h3>
+    <dl><div><dt>Số dư hiện tại</dt><dd>${formatCurrency(balance)}</dd></div><div><dt>Cọc đang giữ</dt><dd>${formatCurrency(depositHeld)}</dd></div></dl>
+  </article>`).join('') || '<p class="studio-empty">Chưa có ví thanh toán.</p>'}</div>`;
+}
+
+const previousRenderExtra = renderExtra;
+renderExtra = function () { previousRenderExtra(); renderStudioExtras(); };
+
+function renderStudioAnalytics() {
+  const owned = liveState.book_copies.filter(copy => !['LOST', 'RETIRED'].includes(copy.status)).length;
+  const borrowed = liveState.book_copies.filter(copy => copy.status === 'ON_LOAN').length;
+  const denominator = Math.max(1, liveState.book_copies.length);
+  document.getElementById('studioanalytics').innerHTML = `<section class="studio-card studio-card-padding"><h2>Tình trạng kho sách</h2><p class="studio-subtle">Tổng đang sở hữu ${owned} cuốn · Đang mượn ${borrowed} cuốn</p>
+    <div class="studio-bars">${Object.entries(copyLabels).map(([status, label]) => {
+      const count = liveState.book_copies.filter(copy => copy.status === status).length;
+      return `<div><span>${label}</span><div><i style="width:${count / denominator * 100}%"></i></div><b>${count}</b></div>`;
+    }).join('')}</div></section><section class="studio-card studio-card-padding"><h2>Nghĩa vụ đã thanh toán</h2><p class="studio-analysis-value">${formatCurrency(liveState.charge_allocations.reduce((sum, entry) => sum + (entry.direction === 'APPLY' ? 1 : -1) * Number(entry.amount_vnd), 0))}</p><p class="studio-subtle">Tổng các khoản đã được thanh toán hoặc khấu trừ cọc.</p></section>`;
+}
+
+function renderStudioNotes() {
+  const query = normalizeSearch(val('studioNoteSearch'));
+  const notes = (liveState.notes || []).filter(note => !note.archived && normalizeSearch(`${note.title} ${note.body}`).includes(query))
+    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  document.getElementById('studioNoteBoard').innerHTML = [false, true].map(done => {
+    const items = notes.filter(note => Boolean(note.done) === done);
+    return `<section class="studio-note-lane ${done ? 'is-done' : ''}">
+      <header><h2>${done ? 'Đã hoàn thành' : 'Cần thực hiện'}</h2><span>${items.length}</span></header>
+      ${items.map(note => `<article class="studio-card studio-note">
+        <h3>${esc(note.title)}</h3><p>${esc(note.body)}</p>
+        <small>${new Date(note.updatedAt).toLocaleString('vi-VN', {timeZone: 'Asia/Ho_Chi_Minh'})}</small>
+        <footer>${studioButton('Chỉnh sửa', `editStudioNote('${note.id}')`, 'white')}${studioButton(done ? 'Mở lại' : 'Hoàn thành', `toggleStudioNote('${note.id}')`, 'dark-green')}</footer>
+      </article>`).join('') || `<p class="studio-empty">${query ? 'Không có ghi chú phù hợp.' : 'Chưa có ghi chú trong mục này.'}</p>`}
+    </section>`;
+  }).join('');
+}
+
+const previousOpenModal = openModal;
+const previousCloseModal = closeModal;
+openModal = function (id) {
+  studio.lastFocus = document.activeElement;
+  previousOpenModal(id);
+  const overlay = document.getElementById(id);
+  overlay?.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('studio-modal-open');
+  setTimeout(() => overlay?.querySelector('input:not([type=hidden]),select,textarea,button')?.focus(), 0);
+};
+closeModal = function (id) {
+  previousCloseModal(id);
+  document.getElementById(id)?.setAttribute('aria-hidden', 'true');
+  if (id === 'studioDialog' && studio.dialogResolve) {
+    studio.dialogResolve(null);
+    studio.dialogResolve = null;
+  }
+  if (!document.querySelector('.modal-overlay.open')) document.body.classList.remove('studio-modal-open');
+  if (studio.lastFocus?.isConnected) studio.lastFocus.focus();
+};
+
+function requestStudioDialog(title, message, options = {}) {
+  if (studio.dialogResolve) studio.dialogResolve(null);
+  setText('studioDialogTitle', title);
+  document.getElementById('studioDialogBody').innerHTML = `<form id="studioDialogForm"><p class="studio-dialog-message">${esc(message)}</p>
+    ${options.reason ? '<label>Lý do / ghi nhận<input name="reason" required maxlength="2000" autocomplete="off" /></label>' : ''}
+    <div class="studio-modal-actions"><button type="button" class="studio-button white" onclick="closeModal('studioDialog')">${options.cancelLabel || 'Hủy'}</button>
+    <button type="submit" class="studio-button ${options.danger ? 'red' : 'dark-green'}">${esc(options.confirmLabel || 'Xác nhận')}</button></div></form>`;
+  return new Promise(resolve => {
+    studio.dialogResolve = resolve;
+    document.getElementById('studioDialogForm').onsubmit = event => {
+      event.preventDefault();
+      const data = Object.fromEntries(new FormData(event.target));
+      studio.dialogResolve = null;
+      closeModal('studioDialog');
+      resolve(data);
+    };
+    openModal('studioDialog');
+  });
+}
+
+function editorField(field) {
+  const required = field.required ? 'required' : '';
+  let input;
+  if (field.options) {
+    input = `<select name="${field.name}" ${required}>${field.options.map(([value, label]) => `<option value="${esc(value)}" ${String(field.value ?? '') === String(value) ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select>`;
+  } else if (field.type === 'textarea') {
+    input = `<textarea name="${field.name}" rows="4" ${required}>${esc(field.value)}</textarea>`;
+  } else {
+    input = `<input name="${field.name}" type="${field.type || 'text'}" value="${esc(field.value)}" ${required} ${field.min != null ? `min="${field.min}"` : ''} ${field.max != null ? `max="${field.max}"` : ''} ${field.step ? `step="${field.step}"` : ''} />`;
+  }
+  return `<label class="${field.type === 'textarea' ? 'studio-span-two' : ''}">${esc(field.label)}${input}</label>`;
+}
+
+function openStudioEditor(title, fields, save) {
+  setText('studioEditorTitle', title);
+  document.getElementById('studioEditorBody').innerHTML = `<form id="studioEditorForm"><div class="studio-editor-fields">${fields.map(editorField).join('')}</div><div id="studioEditorError" role="alert" hidden></div><div class="studio-modal-actions">${studioButton('Hủy', "closeModal('studioEditor')", 'white')}<button type="submit" class="studio-button dark-green">Lưu thay đổi</button></div></form>`;
+  const form = document.getElementById('studioEditorForm');
+  form.onsubmit = async event => {
+    event.preventDefault();
+    if (form.dataset.busy) return;
+    form.dataset.busy = '1';
+    const button = form.querySelector('button[type=submit]');
+    button.disabled = true;
+    try {
+      await save(Object.fromEntries(new FormData(form)));
+      closeModal('studioEditor');
+      await refreshState();
+      showToast('Đã lưu thay đổi.');
+    } catch (error) {
+      const box = document.getElementById('studioEditorError');
+      box.hidden = false;
+      box.textContent = error.message;
+    } finally {
+      delete form.dataset.busy;
+      button.disabled = false;
+    }
+  };
+  openModal('studioEditor');
+}
+
+function editStudioBook() {
+  const book = selectedTitle();
+  if (!book) return;
+  const category = liveState.book_categories.find(item => item.id === book.category_id);
+  const fields = [
+    {name: 'title', label: 'Tên sách', value: book.title, required: true},
+    {name: 'author', label: 'Tác giả', value: book.authors},
+    {name: 'category', label: 'Thể loại', value: category?.name, required: true},
+    {name: 'publisher', label: 'Nhà xuất bản', value: book.publisher},
+    {name: 'price', label: 'Giá bìa (đ) · trống nếu chưa rõ', value: book.cover_price_vnd, type: 'number', min: 0},
+    {name: 'pages', label: 'Số trang', value: book.page_count, type: 'number', min: 1},
+    {name: 'language', label: 'Ngôn ngữ', value: book.language},
+    {name: 'year', label: 'Năm xuất bản', value: book.publication_year, type: 'number', min: 1000, max: 9999},
+    {name: 'isbn', label: 'ISBN', value: book.isbn},
+    {name: 'coverUrl', label: 'URL ảnh bìa', value: book.cover_url, type: 'url'},
+    {name: 'publishStatus', label: 'Tình trạng phát hành', value: book.publication_status, options: [['UNKNOWN', 'Chưa rõ'], ['IN_PRINT', 'Đang phát hành'], ['OUT_OF_PRINT', 'Ngừng phát hành']]},
+    {name: 'languageGroup', label: 'Nhóm đơn giá trang', value: book.compensation_language_group, options: [['', 'Chưa rõ'], ['VIETNAMESE', 'Tiếng Việt'], ['FOREIGN', 'Nước ngoài']]},
+    {name: 'description', label: 'Nội dung sách', value: book.description, type: 'textarea'}
+  ];
+  openStudioEditor('Chỉnh sửa đầu sách ' + book.code, fields, input => api('admin/book-titles/edit', {
+    ...input, id: book.id, version: book.version,
+    price: input.price === '' ? null : Number(input.price), pages: input.pages === '' ? null : Number(input.pages), year: input.year === '' ? null : Number(input.year)
+  }));
+}
+
+async function toggleStudioBook() {
+  const book = selectedTitle();
+  const confirmed = await requestStudioDialog(book.show_on_web ? 'Khóa hiển thị sách' : 'Mở hiển thị sách', `Đổi hiển thị ${book.code} trên kho sách công khai?`);
+  if (confirmed) await toggleBookWebVisibility(book.code, !book.show_on_web);
+}
+
+async function archiveStudioBook() {
+  const book = selectedTitle();
+  const confirmed = await requestStudioDialog('Xóa sách khỏi danh sách hoạt động', `Lưu trữ ${book.code} — ${book.title}. Chỉ thực hiện khi các cuốn đã hoàn tất nghĩa vụ. Lịch sử vẫn được giữ để đối chiếu.`, {reason: true, danger: true, confirmLabel: 'Xác nhận lưu trữ'});
+  if (confirmed) await action(async () => { await api('admin/book-titles/edit', {id: book.id, version: book.version, archive: true, reason: confirmed.reason}); await refreshState(); });
+}
+
+function editStudioReader() {
+  const reader = selectedReader();
+  if (!reader) return;
+  openStudioEditor('Chỉnh sửa độc giả ' + reader.code, [
+    {name: 'name', label: 'Họ và tên', value: reader.full_name, required: true},
+    {name: 'phone', label: 'Số điện thoại', value: reader.phone_display, required: true, type: 'tel'},
+    {name: 'email', label: 'Email', value: reader.email, type: 'email'},
+    {name: 'category', label: 'Nhóm khách', value: reader.reader_category, options: Object.entries(readerLabels)},
+    {name: 'address', label: 'Địa chỉ', value: reader.address},
+    {name: 'organization', label: 'Cơ sở / Đơn vị', value: reader.organization},
+    {name: 'note', label: 'Ghi chú hồ sơ', value: reader.notes, type: 'textarea'}
+  ], input => api('admin/readers/edit', {...input, id: reader.id, version: reader.version}));
+}
+
+async function toggleStudioReader() {
+  const reader = selectedReader();
+  const status = reader.account_status === 'Hoạt động' ? 'Tạm khóa' : 'Hoạt động';
+  const confirmed = await requestStudioDialog('Đổi trạng thái độc giả', `${reader.full_name} → ${status}. Hồ sơ tạm khóa sẽ không được lập phiếu mới.`, {reason: true});
+  if (confirmed) await action(async () => { await api('admin/readers/edit', {id: reader.id, version: reader.version, status, reason: confirmed.reason}); await refreshState(); });
+}
+
+async function archiveStudioReader() {
+  const reader = selectedReader();
+  const confirmed = await requestStudioDialog('Xóa khách khỏi danh sách hoạt động', `Lưu trữ hồ sơ ${reader.full_name}. Cần hoàn tất các phiếu và nghĩa vụ trước khi thực hiện.`, {reason: true, danger: true, confirmLabel: 'Xác nhận lưu trữ'});
+  if (confirmed) await action(async () => { await api('admin/readers/edit', {id: reader.id, version: reader.version, archive: true, reason: confirmed.reason}); await refreshState(); });
+}
+
+function editStudioNote(id) {
+  const note = (liveState.notes || []).find(item => item.id === id);
+  openStudioEditor(note ? 'Chỉnh sửa ghi chú' : 'Thêm ghi chú', [
+    {name: 'title', label: 'Tiêu đề', value: note?.title, required: true},
+    {name: 'body', label: 'Nội dung', value: note?.body, type: 'textarea'}
+  ], input => api('admin/notes', {...input, ...(note ? {id: note.id, version: note.version, done: note.done} : {})}));
+}
+
+async function toggleStudioNote(id) {
+  const note = liveState.notes.find(item => item.id === id);
+  await action(async () => { await api('admin/notes', {...note, done: !note.done}); await refreshState(); });
+}
+
+function openStudioImport() {
+  document.getElementById('studioImportPassword').value = '';
+  openModal('studioImportModal');
+}
+
+previewImport = async function (event) {
+  event.preventDefault();
+  await action(async () => {
+    const file = document.getElementById('importFile').files[0];
+    if (!file) throw new Error('Chọn file Excel trước khi kiểm tra.');
+    const data = new FormData();
+    data.set('file', file);
+    data.set('mode', val('importMode'));
+    data.set('password', val('studioImportPassword'));
+    const result = await api('admin/book-imports/validate', data);
+    document.getElementById('studioImportPassword').value = '';
+    importJob = result.job;
+    document.getElementById('importPreview').innerHTML = `<h3>Kết quả kiểm tra</h3><p>${result.rows.length} dòng · ${result.job.status === 'VALIDATED' ? 'Hợp lệ, sẵn sàng xem trước' : 'Cần sửa các dòng báo lỗi'}</p>
+      ${studioTable(['Sheet / dòng', 'Mã', 'Thay đổi / lỗi'], result.rows.map(row => `<tr><td>${esc(row.sheet)} / ${row.row}</td><td>${esc(row.data.code)}</td><td class="studio-import-diff">${row.errors.length ? esc(row.errors.join('; ')) : `<details><summary>${row.action === 'CREATE' ? 'Thêm mới' : 'Cập nhật'}</summary><pre>${esc(JSON.stringify(row.data, null, 2))}</pre></details>`}</td></tr>`).join(''))}
+      ${result.job.status === 'VALIDATED' ? studioButton('CẬP NHẬT DATA', 'confirmImport()', 'red') : ''}`;
+  }, event.target);
+};
+
+confirmImport = async function () {
+  const confirmed = await requestStudioDialog('Xác nhận nhập Excel', 'Ghi toàn bộ các dòng đã kiểm tra hợp lệ vào kho sách?', {confirmLabel: 'Cập nhật data'});
+  if (!confirmed) return;
+  await action(async () => { const result = await api('admin/book-imports/commit', {jobId: importJob.id}); setText('importPreview', `Đã nhập ${result.imported} dòng.`); await refreshState(); showToast('Đã cập nhật kho sách.'); });
+};
+
+function studioHelp() {
+  requestStudioDialog('Hướng dẫn sử dụng', 'Đầu sách: chọn Thao tác để xem chi tiết. Độc giả: chọn hồ sơ để tra lịch sử và tiền cọc. Phiếu: mỗi cuốn có thao tác trả, báo mất hoặc quyết toán riêng. Xuất dữ liệu lấy dữ liệu của màn hình đang mở.', {confirmLabel: 'Đã hiểu', cancelLabel: 'Đóng'});
+}
+
+async function studioNotifications() {
+  switchAdminTab('dashboard');
+  const details = document.querySelector('.studio-reminder-details');
+  details.open = true;
+  await loadReminders();
+  details.scrollIntoView?.({behavior: 'smooth', block: 'start'});
+}
+
+function searchStudioFeatures() {
+  const query = normalizeSearch(val('studioFeatureSearch'));
+  const results = document.getElementById('studioSearchResults');
+  results.hidden = !query;
+  results.innerHTML = Object.entries(studioTitles).filter(([, label]) => normalizeSearch(label).includes(query)).map(([tab, label]) => `<button onclick="switchAdminTab('${tab}');document.getElementById('studioSearchResults').hidden=true">${esc(label)}</button>`).join('') || '<p>Không tìm thấy tính năng.</p>';
+}
+
+function studioExport() {
+  if (!liveState) return;
+  if (studio.tab === 'books') { action(() => download('admin/book-export', null, 'dau-sach-lamour.xlsx')); return; }
+  const sources = {
+    readers: [liveState.readers.filter(reader => !reader.archived_at), ['code', 'full_name', 'phone_display', 'email', 'reader_category', 'address', 'organization', 'notes']],
+    loans: [liveState.loans, ['code', 'borrowed_on', 'due_on', 'status', 'notes']],
+    wallets: [liveState.financial_transactions, ['code', 'type', 'amount_vnd', 'occurred_at', 'reason']],
+    notes: [(liveState.notes || []).filter(note => !note.archived), ['title', 'body', 'done', 'updatedAt']],
+    settings: [liveState.audit_logs, ['occurred_at', 'action', 'target_table', 'target_id', 'reason']]
+  };
+  const [records, columns] = sources[studio.tab] || [db.wallets.map(wallet => ({code: wallet.id, name: decodeHtml(wallet.name), ...getWalletStats(wallet.name)})), ['code', 'name', 'balance', 'depositHeld']];
+  const cell = value => {
+    let string = String(value ?? '');
+    if (/^[=+@-]/.test(string)) string = "'" + string;
+    return '"' + string.replace(/"/g, '""') + '"';
+  };
+  const csv = '\ufeff' + [columns.map(cell).join(','), ...records.map(record => columns.map(column => cell(record[column])).join(','))].join('\r\n');
+  const objectUrl = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = 'lamour-' + studio.tab + '.csv';
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+function openStudioCalendar() {
+  studio.calendarMonth = (studio.loanRange?.[0] || liveState?.today || new Date().toISOString().slice(0, 10)).slice(0, 7);
+  studio.rangeStart = null;
+  setText('studioCalendarTitle', 'Lọc theo ngày mượn');
+  document.getElementById('studioCalendarBody').innerHTML = `<select id="studioCalendarPreset" aria-label="Khoảng ngày" onchange="studioDatePreset(this.value)"><option value="CUSTOM">Chọn khoảng ngày</option><option value="TODAY">Hôm nay</option><option value="MONTH">Tháng này</option><option value="ALL">Tất cả ngày</option></select>
+    <div id="studioCalendarGrid"></div><p id="studioCalendarHint" aria-live="polite">Chọn ngày bắt đầu, sau đó chọn ngày kết thúc.</p><div class="studio-date-inputs"><label>Từ ngày<input type="date" id="studioDateFrom" /></label><label>Đến ngày<input type="date" id="studioDateTo" /></label></div>
+    <div class="studio-modal-actions">${studioButton('Hủy', "closeModal('studioCalendar')", 'white')}${studioButton('Áp dụng', 'applyStudioDates()', 'dark-green')}</div>`;
+  document.getElementById('studioDateFrom').value = studio.loanRange?.[0] || '';
+  document.getElementById('studioDateTo').value = studio.loanRange?.[1] || '';
+  renderStudioCalendar();
+  openModal('studioCalendar');
+}
+
+function renderStudioCalendar() {
+  const [year, month] = studio.calendarMonth.split('-').map(Number);
+  const first = new Date(Date.UTC(year, month - 1, 1));
+  const offset = (first.getUTCDay() + 6) % 7;
+  const count = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const from = val('studioDateFrom'), to = val('studioDateTo');
+  let days = '<span aria-hidden="true"></span>'.repeat(offset);
+  for (let day = 1; day <= count; day++) {
+    const date = studio.calendarMonth + '-' + String(day).padStart(2, '0');
+    days += `<button type="button" class="${date === from || date === to ? 'endpoint' : from && to && date > from && date < to ? 'in-range' : ''}" aria-label="${day}/${month}/${year}" aria-pressed="${date === from || date === to}" onclick="selectStudioDay('${date}')">${day}</button>`;
+  }
+  document.getElementById('studioCalendarGrid').innerHTML = `<header><h3>Tháng ${month}. ${year}</h3><div>${studioButton('‹', 'moveStudioMonth(-1)', 'calendar-arrow')}${studioButton('›', 'moveStudioMonth(1)', 'calendar-arrow')}</div></header>
+    <div class="studio-calendar-days">${['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(day => `<strong>${day}</strong>`).join('')}${days}</div>`;
+}
+
+function moveStudioMonth(direction) {
+  const [year, month] = studio.calendarMonth.split('-').map(Number);
+  studio.calendarMonth = new Date(Date.UTC(year, month - 1 + direction, 1)).toISOString().slice(0, 7);
+  renderStudioCalendar();
+}
+
+function selectStudioDay(date) {
+  if (!studio.rangeStart) {
+    studio.rangeStart = date;
+    document.getElementById('studioDateFrom').value = date;
+    document.getElementById('studioDateTo').value = '';
+    setText('studioCalendarHint', 'Chọn ngày kết thúc. Có thể chọn cùng ngày để lọc một ngày.');
+  } else {
+    const range = [studio.rangeStart, date].sort();
+    document.getElementById('studioDateFrom').value = range[0];
+    document.getElementById('studioDateTo').value = range[1];
+    studio.rangeStart = null;
+    setText('studioCalendarHint', `Từ ${range[0]} đến ${range[1]}`);
+  }
+  renderStudioCalendar();
+}
+
+function studioDatePreset(preset) {
+  const today = liveState.today;
+  if (preset === 'ALL') { studio.loanRange = null; closeModal('studioCalendar'); renderAdminLoans(); return; }
+  if (preset === 'CUSTOM') return;
+  document.getElementById('studioDateFrom').value = preset === 'TODAY' ? today : today.slice(0, 7) + '-01';
+  const [year, month] = today.split('-').map(Number);
+  document.getElementById('studioDateTo').value = preset === 'TODAY' ? today : new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+  studio.calendarMonth = today.slice(0, 7);
+  renderStudioCalendar();
+}
+
+function applyStudioDates() {
+  const from = val('studioDateFrom'), to = val('studioDateTo');
+  if (!from || !to || from > to) { setText('studioCalendarHint', 'Chọn đủ hai ngày, ngày kết thúc từ ngày bắt đầu trở đi.'); return; }
+  studio.loanRange = [from, to];
+  closeModal('studioCalendar');
+  renderAdminLoans();
+}
+
+addQuickCopy = function (code) {
+  const title = liveState.book_titles.find(book => book.code === code);
+  if (!title) { showToast('Không tìm thấy đầu sách.'); return; }
+  openStudioEditor('Thêm cuốn cho ' + title.code, [
+    {name: 'shelf', label: 'Vị trí kệ'}, {name: 'condition', label: 'Tình trạng', value: 'Tốt'}, {name: 'note', label: 'Ghi chú', type: 'textarea'}
+  ], input => api('admin/copies', {...input, titleId: title.id}));
+};
+
+openNewCopyModal = function () {
+  openStudioEditor('Thêm cuốn sách', [
+    {name: 'titleId', label: 'Đầu sách', options: liveState.book_titles.filter(book => !book.archived_at).map(book => [book.id, book.code + ' — ' + book.title]), required: true},
+    {name: 'shelf', label: 'Vị trí kệ'}, {name: 'condition', label: 'Tình trạng', value: 'Tốt'}, {name: 'note', label: 'Ghi chú', type: 'textarea'}
+  ], input => api('admin/copies', input));
+};
+
+function studioCopyStatus(id) {
+  const copy = liveState.book_copies.find(item => item.id === id);
+  openStudioEditor('Trạng thái ' + copy.code, [
+    {name: 'status', label: 'Trạng thái kho', value: copy.status, options: Object.entries(copyLabels).filter(([status]) => status !== 'ON_LOAN')},
+    {name: 'reason', label: 'Lý do đổi trạng thái', required: true, type: 'textarea'}
+  ], input => api('admin/copies/status', {...input, id: copy.id, version: copy.version}));
+}
+
+recordContact = function (id) {
+  const item = liveState.loan_items.find(item => item.id === id);
+  openStudioEditor('Ghi nhận liên hệ thu hồi', [
+    {name: 'channel', label: 'Kênh liên hệ', options: [['Điện thoại', 'Điện thoại'], ['Zalo', 'Zalo'], ['Tại quầy', 'Tại quầy']]},
+    {name: 'nextDate', label: 'Ngày liên hệ tiếp', type: 'date'},
+    {name: 'content', label: 'Nội dung liên hệ', required: true, type: 'textarea'},
+    {name: 'result', label: 'Kết quả', required: true, type: 'textarea'}
+  ], input => api('admin/contacts', {...input, loanId: item.loan_id}));
+};
+
+receiveReplacement = function (id) {
+  openStudioEditor('Nhận sách thay thế', [{name: 'reason', label: 'Ghi nhận kiểm tra sách mới cùng tên, tác giả và tình trạng', type: 'textarea', required: true}], input => api('admin/replacements', {...input, itemId: id}));
+};
+
+settlePendingUi = async function (id) {
+  await action(async () => {
+    const quote = await api('admin/settlements/quote', {itemId: id});
+    openStudioEditor(`Quyết toán · Khấu trừ ${formatCurrency(quote.applied)} · Hoàn ${formatCurrency(quote.refund)} · Thu thêm ${formatCurrency(quote.extra)}`, [
+      {name: 'walletId', label: 'Ví thực tế thu / chi', options: liveState.wallets.filter(wallet => wallet.active).map(wallet => [wallet.id, wallet.display_name]), required: true},
+      {name: 'reason', label: 'Ghi nhận đã thực thu / chi đúng số tiền nêu trên', type: 'textarea', required: true}
+    ], input => api('admin/settlements', {...input, itemId: id, version: quote.version, quoteHash: quote.quoteHash, cashConfirmed: true}));
+  });
+};
+
+reverseTransferUi = async function (id) {
+  const confirmed = await requestStudioDialog('Đảo giao dịch chuyển ví', 'Ghi nhận dòng tiền ngược chiều của giao dịch này. Hãy xác nhận khoản chuyển ngược đã được thực hiện.', {reason: true, danger: true});
+  if (confirmed) await action(async () => { await api('admin/transactions/reverse', {id, reason: confirmed.reason}); await refreshState(); });
+};
+
+submitNewLoan = async function (event) {
+  event.preventDefault();
+  await action(async () => {
+    const input = loanPayload();
+    const quote = await api('admin/loans/quote', input);
+    const confirmed = await requestStudioDialog('Phát hành phiếu mượn', `${input.copyIds.length} cuốn · Hạn trả ${quote.dueDate} · Tiền cọc ${formatCurrency(quote.deposit)}. Xác nhận bàn giao và tiền cọc đã nhận theo phiếu.`);
+    if (!confirmed) return;
+    await api('admin/loans/issue', {...input, quoteToken: quote.quoteToken});
+    closeModal('newLoanModal');
+    await refreshState();
+    showToast('Đã phát hành phiếu mượn.');
+  }, event.target);
+};
+
+submitReturnLoan = async function (event) {
+  event.preventDefault();
+  await action(async () => {
+    await recalculateReturnSettlement();
+    if (!returnQuoteValue) throw new Error('Chưa có báo giá hợp lệ.');
+    const input = {...returnPayload(), version: returnQuoteValue.version, quoteHash: returnQuoteValue.quoteHash};
+    const confirmed = await requestStudioDialog('Xác nhận xử lý cuốn sách', input.settleNow ? 'Ghi nhận tình trạng sách và các khoản thu / hoàn theo báo giá đã xem.' : 'Ghi nhận sách đã nhận. Tiền và nghĩa vụ được giữ để quyết toán sau.');
+    if (!confirmed) return;
+    await api('admin/returns', input);
+    closeModal('returnLoanModal');
+    await refreshState();
+    showToast('Đã xử lý cuốn sách.');
+  }, event.target);
+};
+
+const previousRouteHash = routeHash;
+routeHash = function () {
+  const tab = location.hash.startsWith('#/admin/') ? location.hash.split('/')[2] : null;
+  if (tab && studioTitles[tab] && window.liveSession) { navigateTo('admin'); switchAdminTab(tab, false); return; }
+  previousRouteHash();
+};
+
+const previousClearPrivate = clearPrivate;
+clearPrivate = function () {
+  previousClearPrivate();
+  for (const id of ['studioBookDetail', 'studioReaderDetail', 'studioNoteBoard', 'studioWalletOverview', 'studioanalytics', 'studioTopReaders', 'studioRecentLogs']) document.getElementById(id)?.replaceChildren();
+  const noteSearch = document.getElementById('studioNoteSearch');
+  if (noteSearch) noteSearch.value = '';
+  studio.bookId = null;
+  studio.readerId = null;
+  document.querySelectorAll('.modal-overlay.open').forEach(overlay => closeModal(overlay.id));
+};

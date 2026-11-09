@@ -4,6 +4,7 @@ import {AppError,assert,text,money,url} from './domain.mjs';
 import * as svc from './service.mjs';
 import {appOrigin,requireAdmin,login,sessionCookies,cookies,authFetch,reauthenticate} from './auth.mjs';
 import {validateImport,commitImport,exportBooks} from './excel.mjs';
+import {editTitle,editReader,saveNote} from './admin-edit.mjs';
 const json=(data,status=200)=>Response.json({data},{status,headers:{'Cache-Control':'no-store'}});
 export async function handle(request,segments,provider=null) {
   const path=segments.join('/'),method=request.method,requestId=randomUUID(); let admin;
@@ -49,6 +50,7 @@ export async function handle(request,segments,provider=null) {
     } else if(path==='admin/book-imports/validate'&&method==='POST') {
       const form=await request.formData(),file=form.get('file'); assert(file&&file.size>0&&file.size<=5*1024*1024,'Chọn file .xlsx tối đa 5MB.');
       assert(file.name.endsWith('.xlsx'),'Chỉ nhận .xlsx.'); const buffer=Buffer.from(await file.arrayBuffer());
+      if(form.get('password')) await reauthenticate(db,admin,form.get('password'));
       response=json(await transaction(c=>validateImport(c,admin.id,buffer,form.get('mode'))));
     } else if(path==='admin/backups/export'&&method==='POST') {
       await reauthenticate(db,admin,p.password);
@@ -71,6 +73,9 @@ export async function handle(request,segments,provider=null) {
       const key=request.headers.get('idempotency-key');
       response=json(await transaction(c=>svc.idempotent(c,admin.id,path,key,p,async()=>{
         if(path==='admin/book-titles'&&method==='POST') return svc.createBook(c,admin.id,p);
+        if(path==='admin/book-titles/edit') return editTitle(c,admin.id,p);
+        if(path==='admin/readers/edit') return editReader(c,admin.id,p);
+        if(path==='admin/notes') return saveNote(c,admin.id,p);
         if(path==='admin/readers'&&method==='POST') return svc.createReader(c,admin.id,p);
         if(path==='admin/copies'&&method==='POST') { const cp=await svc.addCopy(c,p.titleId,p); await svc.audit(c,admin.id,'CREATE','book_copies',cp.id,null,cp); return cp; }
         if(path==='admin/copies/status') return svc.changeCopy(c,admin.id,p);

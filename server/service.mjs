@@ -83,6 +83,9 @@ export async function loanQuote(c,p) {
 export async function issueLoan(c,actor,p,key) {
   // Stable ordered row locks serialize checkout of the same physical copies.
   assert(Array.isArray(p.copyIds),'Thiếu danh sách cuốn.');
+  await one(c,'select id from library.readers where id=$1 for update',[p.readerId]);
+  await rows(c,`select t.id from library.book_titles t where t.id in
+    (select title_id from library.book_copies where id=any($1::uuid[])) order by t.id for share`,[p.copyIds]);
   await rows(c,'select id from library.book_copies where id=any($1::uuid[]) order by id for update',[p.copyIds]);
   const q=await loanQuote(c,p);
   assert(p.quoteToken===loanQuoteToken(q),'Chính sách hoặc cuốn sách đã thay đổi; xem lại báo giá.',409,'QUOTE_CHANGED');
@@ -194,6 +197,7 @@ export async function state(c) {
   const names=['book_titles','book_copies','readers','loans','loan_items','wallets','financial_transactions','cash_entries','deposit_entries','charges','charge_allocations','collection_contacts','print_documents','content_links','reminder_events','book_categories'];
   for(const n of names) result[n]=await rows(c,`select * from library.${n} order by ${n==='content_links'?'sort_order':n==='book_categories'?'name':'id'}`);
   result.audit_logs=await rows(c,'select * from library.audit_logs order by occurred_at desc limit 500');
+  result.notes=(await rows(c,"select value from library.system_settings where key like 'admin_note_%' order by key")).map(row=>row.value);
   result.policy=await policy(c); result.settings=(await one(c,"select value from library.system_settings where key='library'")).value;
   result.today=today(); return result;
 }

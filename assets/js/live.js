@@ -77,7 +77,7 @@ function openNewLoanModal(){
   if(!liveState)return;
   document.getElementById('newLoanForm').reset();
   document.getElementById('loanReaderSelect').innerHTML=liveState.readers.filter(r=>!r.archived_at).map(r=>`<option value="${r.id}">${esc(r.phone_display+' — '+r.full_name+' ('+readerLabels[r.reader_category]+')')}</option>`).join('');
-  document.getElementById('loanCopySelect').innerHTML=liveState.book_copies.filter(c=>c.status==='READY').map(c=>`<option value="${c.id}">${esc(c.code+' — '+liveState.book_titles.find(t=>t.id===c.title_id)?.title)}</option>`).join('');
+  document.getElementById('loanCopySelect').innerHTML=liveState.book_copies.filter(c=>c.status==='READY'&&liveState.book_titles.some(t=>t.id===c.title_id&&!t.archived_at)).map(c=>`<option value="${c.id}">${esc(c.code+' — '+liveState.book_titles.find(t=>t.id===c.title_id)?.title)}</option>`).join('');
   document.getElementById('loanWalletSelect').innerHTML=walletOptions();document.getElementById('loanStartDate').value=liveState.today;onLoanReaderChange();openModal('newLoanModal');
 }
 function loanPayload(){return {readerId:val('loanReaderSelect'),copyIds:[...document.getElementById('loanCopySelect').selectedOptions].map(o=>o.value),borrowDate:val('loanStartDate'),walletId:val('loanWalletSelect'),conditionNote:val('loanConditionNote'),warningAcknowledged:checked('loanWarningAck'),depositConfirmed:checked('loanDepositConfirmed')};}
