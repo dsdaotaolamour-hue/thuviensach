@@ -11,6 +11,22 @@ import {operationsTemplate,previewOperations,commitOperations} from './operation
 const json=(data,status=200)=>Response.json({data},{status,headers:{'Cache-Control':'no-store'}});
 export async function handle(request,segments,provider=null) {
   const path=segments.join('/'),method=request.method,requestId=randomUUID(); let admin;
+  if(path==='public/health'&&method==='GET') {
+    let healthy=false;
+    try {
+      const result=await (provider||database()).query({
+        text:"select 1 from library.system_settings where key='library'",
+        query_timeout:12000
+      });
+      healthy=result.rows.length===1;
+    } catch(error) {
+      console.error('Database health check failed',requestId,error?.code||'DB_UNAVAILABLE');
+    }
+    return new Response(healthy?'OK':'Unavailable',{
+      status:healthy?200:503,
+      headers:{'Cache-Control':'no-store','Content-Type':'text/plain; charset=utf-8'}
+    });
+  }
   try {
     if(method!=='GET') {
       const allowedOrigin = appOrigin();

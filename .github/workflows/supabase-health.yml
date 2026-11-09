@@ -1,0 +1,21 @@
+name: Supabase health check
+
+on:
+  schedule:
+    - cron: '17 0,8,16 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check the production database
+        run: |
+          result=$(curl --fail --silent --show-error --max-time 25 https://thuviensach-six.vercel.app/api/v1/public/health)
+          if [[ "$result" != OK ]]; then
+            echo "::error::The health endpoint did not confirm database connectivity."
+            exit 1
+          fi
