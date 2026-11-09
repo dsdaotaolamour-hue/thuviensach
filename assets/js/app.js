@@ -229,7 +229,7 @@ function openBorrowModal(bookId) {
 
   const copyBtn = document.getElementById('btnCopyBorrowText');
   if (copyBtn) {
-    copyBtn.innerHTML = '📋 Sao Chép Đoạn Văn';
+    copyBtn.innerHTML = 'Sao Chép Đoạn Văn';
     copyBtn.classList.remove('btn-secondary');
     copyBtn.classList.add('btn-primary');
   }
@@ -273,7 +273,7 @@ function handleCopyBorrowText() {
 
   const btn = document.getElementById('btnCopyBorrowText');
   if (btn) {
-    btn.innerHTML = '✅ Đã Sao Chép! (Tick xanh)';
+    btn.innerHTML = 'Đã sao chép';
   }
   showToast('Đã sao chép nội dung đăng ký mượn sách vào Clipboard!');
 }
@@ -599,7 +599,7 @@ function renderAdminDashboard() {
         return `
           <div class="alert-item ${isOverdue ? 'overdue' : ''}">
             <div>
-              <strong>${isOverdue ? '🚨 QUÁ HẠN THU HỒI:' : '🔔 LỊCH NHẮC TRƯỚC 1 THÁNG:'} [${l.id}] ${reader ? reader.name : l.readerId} (${reader ? reader.phone : ''})</strong>
+              <strong>${isOverdue ? 'QUÁ HẠN THU HỒI:' : 'LỊCH NHẮC TRƯỚC 1 THÁNG:'} [${l.id}] ${reader ? reader.name : l.readerId} (${reader ? reader.phone : ''})</strong>
               <div>Sách: ${book ? book.title : l.copyId} • Hạn trả: <b>${l.dueDate}</b> (Ngày nhắc: ${l.remindDate})</div>
             </div>
             <button class="btn btn-xs btn-primary" onclick="openReturnModal('${l.id}')">Xử lý trả / Thu hồi</button>
@@ -919,18 +919,6 @@ function renderAdminSettingsAndLogs() {
   setVal('cfgTechFee', s.techFeeLostBook);
   setVal('cfgOutPrintMultiplier', s.outOfPrintMultiplier);
 
-  const logBody = document.getElementById('adminLogsTableBody');
-  if (logBody) {
-    logBody.innerHTML = db.logs.map(lg => `
-      <tr>
-        <td><small>${lg.time}</small></td>
-        <td><strong>${lg.actor}</strong></td>
-        <td><span class="badge badge-info">${lg.action}</span></td>
-        <td><strong>${lg.target}</strong></td>
-        <td>${lg.detail}</td>
-      </tr>
-    `).join('');
-  }
 }
 
 // saveSettingsForm: implemented in live.js

@@ -6,7 +6,7 @@ const studio = {
 const studioTitles = {
   dashboard: 'Tổng quan', analytics: 'Thống kê', books: 'Kho sách', readers: 'Độc giả',
   loans: 'Mượn và trả sách', wallets: 'Ví tiền', notes: 'Ghi chú',
-  print: 'In phiếu', settings: 'Cài đặt'
+  print: 'In phiếu', logs: 'Nhật ký', settings: 'Cài đặt'
 };
 const studioDescriptions = {
   dashboard: 'Các việc cần làm và tình hình thư viện hôm nay.',
@@ -17,7 +17,8 @@ const studioDescriptions = {
   wallets: 'Theo dõi tiền cọc, số dư và giao dịch.',
   notes: 'Sắp xếp công việc nội bộ theo trạng thái.',
   print: 'Tìm phiếu đã phát hành, xem trước và in hoặc lưu PDF.',
-  settings: 'Quản lý thông tin thư viện, chính sách và nhật ký.'
+  logs: 'Tra cứu các thao tác quản trị trong 15 ngày gần nhất.',
+  settings: 'Quản lý thông tin thư viện và chính sách.'
 };
 
 function studioIcon(name) {
@@ -30,6 +31,7 @@ function studioIcon(name) {
     wallets: '<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18M15 14h6"/>',
     notes: '<rect x="4" y="4" width="16" height="18" rx="2"/><path d="M8 2v4M16 2v4M8 11h8M8 15h6"/>',
     print: '<path d="M7 8V3h10v5M7 17H3V9h18v8h-4M7 14h10v7H7Z"/>',
+    logs: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     settings: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/>',
     search: '<circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/>',
     bell: '<path d="M5 17h14l-2-4V8a5 5 0 0 0-10 0v5ZM10 21h4"/>',
@@ -74,7 +76,7 @@ function installStudio() {
   sidebar.innerHTML = `<a class="studio-brand" href="#/admin/dashboard"><span>L</span><strong>LAMOUR<small>THƯ VIỆN SÁCH NGÀNH SPA</small></strong></a>
     <nav class="sidebar-nav" aria-label="Quản trị"><p class="studio-nav-label">Công việc hằng ngày</p>
     ${studioNav(['dashboard', 'loans', 'books', 'readers', 'print'])}<p class="studio-nav-label">Quản lý thư viện</p>
-    ${studioNav(['wallets', 'notes', 'analytics', 'settings'])}</nav>
+    ${studioNav(['wallets', 'notes', 'analytics', 'logs', 'settings'])}</nav>
     <div class="studio-account"><div class="studio-avatar">AD</div><strong id="activeAdminName">Quản trị viên</strong>
     <small id="activeAdminRole">Quản trị thư viện</small>
     ${studioButton('Xem website ↗', "navigateTo('home')", 'white')}${studioButton('Đăng xuất', 'handleLogout()', 'white')}</div>`;
@@ -132,6 +134,13 @@ function installStudio() {
   buildStudioReaders();
   buildStudioLoans();
   buildStudioPrint();
+  content.insertAdjacentHTML('beforeend', `<section id="admin-tab-logs" class="admin-tab-pane">
+    <section class="studio-card"><header class="studio-panel-heading"><div><h2>Lịch sử thao tác</h2><p class="studio-subtle">10 mục mỗi trang · Mới nhất trước</p></div></header>
+    ${studioTable(['Thời gian', 'Hành động', 'Bản ghi', 'Chi tiết'], '', 'studioLogRows')}
+    <footer class="studio-log-pagination"><span id="studioLogStatus" role="status"></span>
+    <div><button id="studioLogPrevious" class="studio-button white" onclick="loadStudioLogs(studio.logPage - 1)">Trang trước</button>
+    <button id="studioLogNext" class="studio-button white" onclick="loadStudioLogs(studio.logPage + 1)">Trang sau</button></div>
+    </footer></section></section>`);
   for (const [tab, title] of [['analytics', 'Phân tích'], ['notes', 'Ghi chú']]) {
     content.insertAdjacentHTML('beforeend', `<section id="admin-tab-${tab}" class="admin-tab-pane"><div id="studio${tab}"></div></section>`);
   }
@@ -164,7 +173,7 @@ function installStudio() {
     }
     const dialog = [...document.querySelectorAll('.modal-overlay.open')].at(-1);
     if (event.key !== 'Tab' || !dialog) return;
-    const controls = [...dialog.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"]')].filter(el => !el.hidden);
+    const controls = [...dialog.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"]')].filter(el => el.getClientRects().length);
     const first = controls[0], last = controls.at(-1);
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
     if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
@@ -205,9 +214,41 @@ switchAdminTab = function (tab, syncUrl = true) {
   setText('studioToday', new Intl.DateTimeFormat('vi-VN', {dateStyle: 'full', timeZone: 'Asia/Ho_Chi_Minh'}).format(new Date()));
   renderAllAdminViews();
   renderStudioExtras();
+  if (tab === 'logs' && liveState) void loadStudioLogs(1);
   document.querySelector('.admin-sidebar')?.classList.remove('open');
   if (syncUrl && document.getElementById('page-admin').classList.contains('active')) history.replaceState(null, '', '#/admin/' + tab);
 };
+
+let studioLogRequest = 0;
+async function loadStudioLogs(page) {
+  const request = ++studioLogRequest;
+  const previous = document.getElementById('studioLogPrevious');
+  const next = document.getElementById('studioLogNext');
+  const rows = document.getElementById('studioLogRows');
+  previous.disabled = next.disabled = true;
+  setText('studioLogStatus', 'Đang tải nhật ký…');
+  try {
+    const result = await api('admin/audit-logs?page=' + page);
+    if (request !== studioLogRequest || !liveState) return;
+    studio.logPage = result.page;
+    rows.innerHTML = result.logs.map(log => `<tr><td>${esc(new Date(log.occurred_at).toLocaleString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh'}))}</td>
+      <td><span class="studio-tag">${esc(studioLogLabel(log.action))}</span></td>
+      <td><b>${esc(studioLogLabel(log.target_table))}</b><small>${esc(log.target_id)}</small></td>
+      <td>${esc(log.reason || '—')}</td></tr>`).join('') || studioEmpty('Chưa có thao tác trong 15 ngày gần nhất.', 4);
+    setText('studioLogStatus', `Trang ${result.page} / ${result.pages} · ${result.total} mục`);
+    previous.disabled = result.page <= 1;
+    next.disabled = result.page >= result.pages;
+  } catch {
+    if (request !== studioLogRequest || !liveState) return;
+    rows.innerHTML = studioEmpty('Không tải được nhật ký.', 4);
+    setText('studioLogStatus', 'Mở lại tab Nhật ký để thử lại.');
+  }
+}
+
+function studioLogLabel(value) {
+  return ({LOGIN:'Đăng nhập', ISSUE:'Cho mượn sách', RETURN:'Nhận sách trả', CREATE:'Thêm mới', EDIT:'Chỉnh sửa', ARCHIVE:'Lưu trữ', VISIBILITY:'Đổi hiển thị', SAVE_NOTE:'Lưu ghi chú', POLICY_VERSION:'Cập nhật chính sách',
+    loans:'Phiếu mượn', readers:'Độc giả', book_titles:'Đầu sách', book_copies:'Cuốn sách', admin_accounts:'Tài khoản', system_settings:'Cài đặt', financial_transactions:'Giao dịch'})[value] || value;
+}
 
 function buildStudioDashboard() {
   const pane = document.getElementById('admin-tab-dashboard');
@@ -221,7 +262,7 @@ function buildStudioDashboard() {
     ${studioTable(['Mã ví', 'Ví / Hình thức', 'Số dư', 'Cọc đang giữ', 'Trạng thái'], '', 'dashboardWalletBody')}</section>
     <section class="studio-card"><header class="studio-panel-heading"><h2>Theo dõi nhắc hạn &amp; Quá hạn</h2></header><div class="studio-card-padding">${studioButton('Tất cả phiếu →', "switchAdminTab('loans')", 'white')}<div id="dashboardAlertsList"></div></div></section></div>
     <div class="studio-dashboard-bottom"><section class="studio-card"><header class="studio-panel-heading"><h2>Khách hoạt động nhiều</h2>${studioButton('Xem chi tiết →', "switchAdminTab('readers')", 'white')}</header><div id="studioTopReaders"></div></section>
-    <section class="studio-card"><header class="studio-panel-heading"><h2>Hoạt động gần đây</h2>${studioButton('Xem nhật ký →', "switchAdminTab('settings')", 'text')}</header><div id="studioRecentLogs" class="studio-card-padding"></div></section></div>`;
+    <section class="studio-card"><header class="studio-panel-heading"><h2>Hoạt động gần đây</h2>${studioButton('Xem nhật ký →', "switchAdminTab('logs')", 'text')}</header><div id="studioRecentLogs" class="studio-card-padding"></div></section></div>`;
   const details = document.createElement('details');
   details.className = 'studio-reminder-details';
   details.innerHTML = '<summary>Nhắc hạn và lịch sử liên hệ thu hồi</summary>';
@@ -790,8 +831,11 @@ function openStudioCalendar() {
   studio.rangeStart = null;
   setText('studioCalendarTitle', 'Lọc theo ngày mượn');
   document.getElementById('studioCalendarBody').innerHTML = `<select id="studioCalendarPreset" aria-label="Khoảng ngày" onchange="studioDatePreset(this.value)"><option value="CUSTOM">Chọn khoảng ngày</option><option value="TODAY">Hôm nay</option><option value="MONTH">Tháng này</option><option value="ALL">Tất cả ngày</option></select>
-    <div id="studioCalendarGrid"></div><p id="studioCalendarHint" aria-live="polite">Chọn ngày bắt đầu, sau đó chọn ngày kết thúc.</p><div class="studio-date-inputs"><label>Từ ngày<input type="date" id="studioDateFrom" /></label><label>Đến ngày<input type="date" id="studioDateTo" /></label></div>
-    <div class="studio-modal-actions">${studioButton('Hủy', "closeModal('studioCalendar')", 'white')}${studioButton('Áp dụng', 'applyStudioDates()', 'dark-green')}</div>`;
+    <div id="studioCalendarGrid"></div><div class="studio-date-inputs"><label>Từ ngày<input type="date" id="studioDateFrom" onchange="renderStudioCalendar()" /></label><label>Đến ngày<input type="date" id="studioDateTo" onchange="renderStudioCalendar()" /></label></div>
+    <p id="studioCalendarHint" aria-live="polite">Chọn ngày bắt đầu và ngày kết thúc.</p>`;
+  const dialog = document.querySelector('#studioCalendar .modal-dialog');
+  dialog.querySelector('.studio-calendar-footer')?.remove();
+  dialog.insertAdjacentHTML('beforeend', `<footer class="studio-modal-actions studio-calendar-footer">${studioButton('Hủy', "closeModal('studioCalendar')", 'white')}${studioButton('Áp dụng', 'applyStudioDates()', 'dark-green')}</footer>`);
   document.getElementById('studioDateFrom').value = studio.loanRange?.[0] || '';
   document.getElementById('studioDateTo').value = studio.loanRange?.[1] || '';
   renderStudioCalendar();
@@ -944,6 +988,7 @@ routeHash = function () {
 
 const previousClearPrivate = clearPrivate;
 clearPrivate = function () {
+  studioLogRequest++;
   previousClearPrivate();
   for (const id of ['studioBookDetail', 'studioReaderDetail', 'studioNoteBoard', 'studioWalletOverview', 'studioanalytics', 'studioTopReaders', 'studioRecentLogs']) document.getElementById(id)?.replaceChildren();
   const noteSearch = document.getElementById('studioNoteSearch');

@@ -2,6 +2,15 @@ import {createHash,randomUUID} from 'node:crypto';
 import {assert,text,money,date,today,addMonths,phone,url,settlement,AppError} from './domain.mjs';
 export async function rows(c,sql,params=[]) { return (await c.query(sql,params)).rows; }
 export async function one(c,sql,params=[]) { return (await rows(c,sql,params))[0]; }
+export async function auditPage(c, requestedPage) {
+  const {total} = await one(c, "select count(*)::int as total from library.audit_logs where occurred_at > now() - interval '15 days'");
+  const pages = Math.max(1, Math.ceil(total / 10));
+  const page = Math.min(requestedPage, pages);
+  const logs = await rows(c, `select id, occurred_at, action, target_table, target_id, reason
+    from library.audit_logs where occurred_at > now() - interval '15 days'
+    order by occurred_at desc, id desc limit 10 offset $1`, [(page - 1) * 10]);
+  return {logs, page, pages, total};
+}
 export function hash(value) { return createHash('sha256').update(typeof value==='string'||Buffer.isBuffer(value)?value:JSON.stringify(value)).digest('hex'); }
 export async function audit(c,actor,action,table,id,before,after,reason='') {
   await c.query('insert into library.audit_logs(actor_id,action,target_table,target_id,before_data,after_data,reason,request_id) values($1,$2,$3,$4,$5,$6,$7,$8)',[actor,action,table,id,JSON.stringify(before??null),JSON.stringify(after??null),reason,randomUUID()]);
@@ -196,7 +205,9 @@ export async function state(c) {
   const result={};
   const names=['book_titles','book_copies','readers','loans','loan_items','wallets','financial_transactions','cash_entries','deposit_entries','charges','charge_allocations','collection_contacts','print_documents','content_links','reminder_events','book_categories'];
   for(const n of names) result[n]=await rows(c,`select * from library.${n} order by ${n==='content_links'?'sort_order':n==='book_categories'?'name':'id'}`);
-  result.audit_logs=await rows(c,'select * from library.audit_logs order by occurred_at desc limit 500');
+  result.audit_logs=await rows(c,`select occurred_at, action, target_table, target_id, reason
+    from library.audit_logs where occurred_at > now() - interval '15 days'
+    order by occurred_at desc, id desc limit 5`);
   result.notes=(await rows(c,"select value from library.system_settings where key like 'admin_note_%' order by key")).map(row=>row.value);
   result.policy=await policy(c); result.settings=(await one(c,"select value from library.system_settings where key='library'")).value;
   result.today=today(); return result;

@@ -15,6 +15,13 @@ const server = http.createServer(async (request, response) => {
   if (pathname === '/api/v1/public/content') return send({settings: state.settings, links: [], sections: []});
   if (pathname === '/api/v1/public/books') return send([]);
   if (pathname === '/api/v1/admin/reminders') return send([]);
+  if (pathname === '/api/v1/admin/audit-logs') {
+    const page = Math.min(2, Math.max(1, Number(new URL(request.url, 'http://localhost').searchParams.get('page')) || 1));
+    const logs = Array.from({length: 10}, (_, index) => ({
+      ...state.audit_logs[0], target_id: 'Mẫu ' + ((page - 1) * 10 + index + 1)
+    }));
+    return send({logs, page, pages: 2, total: 20});
+  }
   if (pathname.startsWith('/api/')) { response.writeHead(422, {'Content-Type': 'application/json'}); response.end(JSON.stringify({error: {message: 'Bản xem trước cục bộ chỉ dùng kiểm tra giao diện.'}})); return; }
   const file = pathname === '/' ? path.join(root, 'index.html') : path.resolve(root, '.' + pathname);
   if (!file.startsWith(root + path.sep)) { response.writeHead(404); response.end(); return; }

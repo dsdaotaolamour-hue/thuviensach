@@ -44,6 +44,14 @@ export async function handle(request,segments,provider=null) {
     if(path==='auth/session'&&method==='GET') response=json({email:admin.email});
     else if(path==='admin/state'&&method==='GET') response=json(await transaction(async c=>{await c.query('set transaction isolation level repeatable read read only');return svc.state(c);},db));
     else if(path==='admin/reminders'&&method==='GET') response=json(await svc.reminders(db,admin.id));
+    else if(path==='admin/audit-logs'&&method==='GET') {
+      const page = Number(new URL(request.url).searchParams.get('page') ?? 1);
+      assert(Number.isSafeInteger(page) && page >= 1, 'Số trang không hợp lệ.');
+      response = json(await transaction(async c => {
+        await c.query('set transaction isolation level repeatable read read only');
+        return svc.auditPage(c, page);
+      }, db));
+    }
     else if(path==='admin/book-export'&&method==='GET') {
       const buf=await exportBooks(db,new URL(request.url).searchParams.get('template')==='1');
       response=new Response(buf,{headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Disposition':'attachment; filename="lamour-books.xlsx"','Cache-Control':'no-store'}});

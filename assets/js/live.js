@@ -52,7 +52,6 @@ function applyState(){
     const ce=s.cash_entries.filter(e=>e.transaction_id===t.id),de=s.deposit_entries.filter(e=>e.transaction_id===t.id),r=s.readers.find(r=>r.id===t.reader_id),l=s.loans.find(l=>l.id===t.loan_id);
     return {id:t.code,time:new Date(t.occurred_at).toLocaleString('vi-VN'),readerId:r?.code||'',loanId:l?.code||'',type:typeLabels[t.type]||esc(t.type),amount:Number(t.amount_vnd),wallet:esc(ce.map(e=>s.wallets.find(w=>w.id===e.wallet_id)?.display_name).join(' → ')||s.wallets.find(w=>w.id===s.loan_items.find(i=>i.id===de[0]?.loan_item_id)?.deposit_wallet_id)?.display_name||''),depositEffect:formatCurrency(de.reduce((n,e)=>n+(e.direction==='INCREASE'?1:-1)*Number(e.amount_vnd),0)),walletEffect:formatCurrency(ce.reduce((n,e)=>n+(e.direction==='IN'?1:-1)*Number(e.amount_vnd),0)),staff:'Admin',note:esc(t.reason)};
   });
-  db.logs=s.audit_logs.map(l=>({time:esc(new Date(l.occurred_at).toLocaleString('vi-VN')),actor:'Admin',action:esc(l.action),target:esc(l.target_table+' '+(l.target_id||'')),detail:esc(l.reason)}));
   syncPublicCategories();
 }
 function syncPublicCategories(){const el=document.getElementById('publicCategoryFilter'),old=el.value;el.innerHTML='<option value="ALL">Tất cả chuyên mục</option>'+[...new Set(db.bookTitles.filter(t=>t.showOnWeb).map(t=>t.category))].map(c=>`<option value="${c}">${c}</option>`).join('');el.value=[...el.options].some(o=>o.value===old)?old:'ALL';}

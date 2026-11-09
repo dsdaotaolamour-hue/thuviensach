@@ -36,6 +36,26 @@ test('migrations, Excel columns, single admin and append-only history',async()=>
     const tables=await svc.rows(db,"select tablename,rowsecurity from pg_tables where schemaname='library'");assert.ok(tables.length>=28&&tables.every(t=>t.rowsecurity));
   }finally{await db.close();}
 });
+test('audit retention protects recent history and paginates ten records at a time', async () => {
+  const db = await fixture();
+  try {
+    await db.query(`insert into library.audit_logs (occurred_at, action, target_table, target_id, request_id)
+      select now() - n * interval '1 minute', 'EDIT', 'book_titles', n::text, gen_random_uuid()
+      from generate_series(1, 20) n`);
+    await db.query(`insert into library.audit_logs (occurred_at, action, target_table, request_id)
+      values (now() - interval '16 days', 'LOGIN', 'admin_accounts', gen_random_uuid())`);
+    const first = await svc.auditPage(db, 1);
+    const second = await svc.auditPage(db, 2);
+    assert.equal(first.total, 20);
+    assert.deepEqual(first.logs.map(log => Number(log.target_id)), [1,2,3,4,5,6,7,8,9,10]);
+    assert.deepEqual(second.logs.map(log => Number(log.target_id)), [11,12,13,14,15,16,17,18,19,20]);
+    await assert.rejects(db.query("delete from library.audit_logs where target_id = '1'"), /APPEND_ONLY/);
+    await assert.rejects(db.query("update library.audit_logs set reason = 'changed'"), /APPEND_ONLY/);
+    const expired = await svc.rows(db, "delete from library.audit_logs where occurred_at <= now() - interval '15 days' returning id");
+    assert.equal(expired.length, 1);
+    assert.equal((await svc.auditPage(db, 3)).page, 2);
+  } finally { await db.close(); }
+});
 test('multi-copy issuance is atomic, idempotent and prevents duplicate checkout',async()=>{
   const db=await fixture();try{
     const {p}=await seed(db),key=randomUUID();
