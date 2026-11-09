@@ -203,6 +203,9 @@ export async function adjustCopyTotal(c, actor, p) {
   const copies = await rows(c,`select id,status,version from library.book_copies
     where title_id=$1 and status not in ('LOST','RETIRED') order by code desc for update`,[title.id]);
   assert(copies.length === p.previousTotal,'Số cuốn đã thay đổi. Hãy tải lại danh sách.',409);
+  if (p.previousAvailable !== undefined) {
+    assert(copies.filter(copy=>copy.status==='READY').length === p.previousAvailable,'Số cuốn Có sẵn đã thay đổi. Hãy kiểm tra lại file.',409);
+  }
   assert(Number.isSafeInteger(p.total) && p.total >= 0 && Math.abs(p.total - copies.length) <= 100,'Mỗi lần điều chỉnh tối đa 100 cuốn.');
   const reason = text(p.reason,'Lý do',2000,true);
   const delta = p.total - copies.length;

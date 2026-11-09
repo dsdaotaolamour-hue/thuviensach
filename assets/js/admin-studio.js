@@ -130,7 +130,7 @@ function installStudio() {
     }
   });
   importPanel.querySelector('p').textContent = 'Đối chiếu theo mã. Dòng giống hệt được bỏ qua. Để sửa dữ liệu hiện có, nên xuất file mới nhất rồi giữ nguyên cột VERSION.';
-  importPanel.insertAdjacentHTML('beforeend', '<p class="studio-subtle">Tổng cuốn, tồn và trạng thái mượn được tính từ từng cuốn và phiếu. Chỉnh số lượng trong khung kho sách.</p>');
+  importPanel.insertAdjacentHTML('beforeend', '<p class="studio-subtle">Để chỉnh tồn, tăng hoặc giảm TỔNG SỐ CUỐN và CÓ SẴN cùng mức. Không thêm mã cuốn mới ở sheet SÁCH cho cùng đầu sách. ĐANG MƯỢN và ĐANG SỬA là số liệu chỉ đọc.</p>');
 
   buildStudioDashboard();
   buildStudioReaders();
@@ -900,9 +900,9 @@ previewImport = async function (event) {
     document.getElementById('studioImportPassword').value = '';
     importJob = result.job;
     const skipped = result.rows.filter(row => row.action === 'SKIP' && !row.errors.length).length;
-    const fields = {title:'Tên sách',author:'Tác giả',category:'Thể loại',publisher:'Nhà xuất bản',language:'Ngôn ngữ',acquiredOn:'Ngày nhập',coverUrl:'Ảnh bìa',description:'Mô tả',year:'Năm xuất bản',isbn:'ISBN',price:'Giá bìa',showOnWeb:'Hiển thị web',pages:'Số trang',publishStatus:'Phát hành',languageGroup:'Nhóm đơn giá',condition:'Tình trạng',mediaType:'Loại',shelf:'Vị trí kệ',note:'Ghi chú'};
+    const fields = {total:'Tổng số cuốn',available:'Có sẵn',title:'Tên sách',author:'Tác giả',category:'Thể loại',publisher:'Nhà xuất bản',language:'Ngôn ngữ',acquiredOn:'Ngày nhập',coverUrl:'Ảnh bìa',description:'Mô tả',year:'Năm xuất bản',isbn:'ISBN',price:'Giá bìa',showOnWeb:'Hiển thị web',pages:'Số trang',publishStatus:'Phát hành',languageGroup:'Nhóm đơn giá',condition:'Tình trạng',mediaType:'Loại',shelf:'Vị trí kệ',note:'Ghi chú'};
     document.getElementById('importPreview').innerHTML = `<h3>Kết quả kiểm tra</h3><p>${result.rows.length} dòng · ${skipped} không đổi · ${result.job.status === 'INVALID' ? 'Cần sửa lỗi' : result.job.status === 'UNCHANGED' ? 'Không có gì cần cập nhật' : 'Sẵn sàng xác nhận'}</p>
-      ${skipped === result.rows.length ? '' : studioTable(['Sheet / dòng', 'Mã', 'Thay đổi / lỗi'], result.rows.filter(row => row.action !== 'SKIP' || row.errors.length).map(row => `<tr><td>${esc(row.sheet)} / ${row.row}</td><td>${esc(row.data.code)}</td><td class="studio-import-diff">${row.errors.length ? esc(row.errors.join('; ')) : row.action === 'CREATE' ? 'Thêm mới · ' + esc(row.data.title || row.data.titleCode) : `<ul>${row.changes.map(change=>`<li><b>${esc(fields[change.field])}:</b> ${esc(change.from ?? '—')} → ${esc(change.to ?? '—')}</li>`).join('')}</ul>`}</td></tr>`).join(''))}
+      ${skipped === result.rows.length ? '' : studioTable(['Sheet / dòng', 'Mã', 'Thay đổi / lỗi'], result.rows.filter(row => row.action !== 'SKIP' || row.errors.length).map(row => `<tr><td>${esc(row.sheet)} / ${row.row}</td><td>${esc(row.data.code)}</td><td class="studio-import-diff">${row.errors.length ? esc(row.errors.join('; ')) : row.action === 'CREATE' ? 'Thêm mới · ' + esc(row.data.title || row.data.titleCode) + (row.data.stock ? ' · Thêm ' + row.data.stock.total + ' cuốn Có sẵn' : '') : `<ul>${row.changes.map(change=>`<li><b>${esc(fields[change.field])}:</b> ${esc(change.from ?? '—')} → ${esc(change.to ?? '—')}</li>`).join('')}</ul>`}</td></tr>`).join(''))}
       ${result.job.status === 'VALIDATED' ? studioButton('CẬP NHẬT DATA', 'confirmImport()', 'red') : ''}`;
   }, event.target);
 };

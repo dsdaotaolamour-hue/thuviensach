@@ -139,6 +139,24 @@ test('Excel export round trip validates versions; original blank placeholder is 
     const next=await svc.createBook(db,actor,{title:'Tiếp theo',copiesCount:0});assert.equal(next.code,'DS101');
   }finally{await db.close();}
 });
+test('editing exported stock from zero to one creates one ready copy and reimport skips it', async () => {
+  const db=await fixture();
+  try {
+    const title=await svc.createBook(db,actor,{title:'Sách chỉnh tồn',copiesCount:0});
+    const workbook=new ExcelJS.Workbook();
+    await workbook.xlsx.load(await exportBooks(db));
+    const sheet=workbook.getWorksheet('ĐẦU SÁCH');
+    sheet.getCell('O2').value=1;
+    sheet.getCell('P2').value=1;
+    const file=Buffer.from(await workbook.xlsx.writeBuffer());
+    const preview=await tx(db,()=>validateImport(db,actor,file,'SYNC'));
+    assert.equal(preview.job.status,'VALIDATED');
+    assert.deepEqual(preview.rows[0].changes,[{field:'total',from:0,to:1},{field:'available',from:0,to:1}]);
+    await tx(db,()=>commitImport(db,actor,preview.job.id));
+    assert.deepEqual(await svc.rows(db,'select status from library.book_copies where title_id=$1',[title.id]),[{status:'READY'}]);
+    assert.equal((await tx(db,()=>validateImport(db,actor,file,'SYNC'))).job.status,'UNCHANGED');
+  } finally {await db.close();}
+});
 test('operations Excel previews reader, loan and transfer entries and skips repeated references', async () => {
   const db=await fixture();
   try {

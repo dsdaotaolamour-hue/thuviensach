@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import {assert,money,date,url,today} from './domain.mjs';
-import {rows,one,hash,createBook,audit,addCopy} from './service.mjs';
+import {rows,one,hash,createBook,audit,addCopy,adjustCopyTotal} from './service.mjs';
 export const TITLE_HEADERS=['STT','MÃ ĐẦU SÁCH','TÊN ĐẦU SÁCH','TÁC GIẢ','THỂ LOẠI','NHÀ XUẤT BẢN','NGÔN NGỮ','NGÀY NHẬP','LINK ẢNH BÌA','MÔ TẢ SÁCH','NĂM XUẤT BẢN','ISBN','GIÁ BÌA (đ)','HIỂN THỊ WEB','TỔNG SỐ CUỐN','CÓ SẴN','ĐANG MƯỢN','ĐANG SỬA','SỐ TRANG','TÌNH TRẠNG PHÁT HÀNH','NHÓM ĐƠN GIÁ TRANG','VERSION'];
 export const COPY_HEADERS=['STT','MÃ SÁCH','TÌNH TRẠNG','LOẠI','TRẠNG THÁI','VỊ TRÍ KỆ','NGÀY NHẬP','GHI CHÚ','MÃ ĐẦU SÁCH','TÊN ĐẦU SÁCH','VERSION'];
 const safe=value=>typeof value==='string'&&/^[=+@-]/.test(value)?"'"+value:value;
@@ -76,6 +76,26 @@ export async function validateImport(c,actor,buffer,mode) {
           : 'select * from library.book_copies where code=$1',[code]);
         if (mode==='UPDATE') assert(old,'Không tìm thấy mã để cập nhật.');
         action=old?'UPDATE':'CREATE';
+        if (kind==='title') {
+          const quantity = column => {
+            if (row.getCell(column).formula || v(column)==='') return null;
+            const number=Number(v(column));
+            assert(/^\d+$/.test(String(v(column)).trim()) && Number.isSafeInteger(number),'Số lượng phải là số nguyên không âm.');
+            return number;
+          };
+          const total=quantity(15), available=quantity(16);
+          if (total!==null || available!==null) {
+            const stock=old ? await one(c,`select count(*)::int total,count(*) filter(where status='READY')::int available
+              from library.book_copies where title_id=$1 and status not in ('LOST','RETIRED')`,[old.id]) : {total:0,available:0};
+            const delta=total!==null ? total-stock.total : available-stock.available;
+            assert(available===null || available===stock.available+delta,'Tổng số cuốn và Có sẵn phải tăng hoặc giảm cùng số lượng.');
+            assert(Math.abs(delta)<=100 && stock.available+delta>=0,'Chỉ được giảm các cuốn Có sẵn và điều chỉnh tối đa 100 cuốn mỗi đầu sách.');
+            if (delta) {
+              data.stock={total:stock.total+delta,previousTotal:stock.total,previousAvailable:stock.available};
+              changes.push({field:'total',from:stock.total,to:stock.total+delta},{field:'available',from:stock.available,to:stock.available+delta});
+            }
+          }
+        }
         if (old) {
           const fields=kind==='title'?titleFields:copyFields;
           for (const [key,column] of Object.entries(fields)) {
@@ -93,6 +113,7 @@ export async function validateImport(c,actor,buffer,mode) {
             if (mode==='UPDATE' || data.version) assert(data.version===old.version,'VERSION đã thay đổi hoặc bị thiếu; xuất file mới.');
             assert(!old.archived_at,'Đầu sách đã lưu trữ.');
             data.version=old.version;
+            if (data.stock && changes.every(change=>change.field==='total'||change.field==='available')) action='STOCK';
           }
         }
         if(kind==='copy') {
@@ -104,6 +125,10 @@ export async function validateImport(c,actor,buffer,mode) {
       } catch(e) { errors.push(e.message); }
       planned.push({sheet:sheetName,row:n,data,errors,action,changes});
     }
+  }
+  const explicitCopies=new Set(planned.filter(row=>row.data.kind==='copy' && row.action==='CREATE').map(row=>row.data.titleCode));
+  for (const row of planned) {
+    if (row.data.stock && explicitCopies.has(row.data.code)) row.errors.push('Chọn một cách: sửa số lượng hoặc thêm mã cuốn mới ở sheet SÁCH.');
   }
   assert(planned.length>0,'Không có dữ liệu sách.');
   await c.query('select pg_advisory_xact_lock(hashtext($1))',['excel-preview:'+actor]);
@@ -130,14 +155,19 @@ export async function commitImport(c,actor,id) {
     const p=r.data;
     const create=r.planned_action==='CREATE';
     if(create&&p.kind==='title') {
-      await createBook(c,actor,{...p,importCode:p.code});
+      await createBook(c,actor,{...p,importCode:p.code,copiesCount:p.stock?.total ?? 0});
     } else if(create) {
       const t=await one(c,'select id from library.book_titles where code=$1',[p.titleCode]); const cp=await addCopy(c,t.id,p);
       await c.query('update library.book_copies set code=$2 where id=$1',[cp.id,p.code]);
+    } else if(r.planned_action==='STOCK') {
+      const title=await one(c,'select id from library.book_titles where code=$1 and version=$2 for update',[p.code,p.version]);
+      assert(title,`${p.code} đã thay đổi sau khi kiểm tra.`,409);
+      await adjustCopyTotal(c,actor,{...p.stock,titleId:title.id,reason:'Điều chỉnh số lượng từ Excel'});
     } else if(p.kind==='title') {
       const cat=await one(c,'insert into library.book_categories(name) values($1) on conflict(name) do update set name=excluded.name returning id',[p.category]);
       const result=await one(c,`update library.book_titles set title=$3,authors=$4,category_id=$5,publisher=$6,language=$7,acquired_on=$8,cover_url=$9,short_description=$10,description=$10,publication_year=$11,isbn=$12,cover_price_vnd=$13,show_on_web=$14,page_count=$15,publication_status=$16,compensation_language_group=$17,version=version+1,updated_at=now() where code=$1 and version=$2 returning *`,[p.code,p.version,p.title,p.author,cat.id,p.publisher,p.language,p.acquiredOn,p.coverUrl,p.description,p.year,p.isbn,p.price,p.showOnWeb,p.pages,p.publishStatus,p.languageGroup||null]);
       assert(result,`${p.code} đã thay đổi sau khi kiểm tra.`,409);
+      if (p.stock) await adjustCopyTotal(c,actor,{...p.stock,titleId:result.id,reason:'Điều chỉnh số lượng từ Excel'});
     } else {
       const result=await one(c,'update library.book_copies set physical_condition=$3,media_type=$4,shelf_location=$5,acquired_on=$6,condition_note=$7,version=version+1,updated_at=now() where code=$1 and version=$2 returning *',[p.code,p.version,p.condition,p.mediaType,p.shelf,p.acquiredOn,p.note]);
       assert(result,`${p.code} đã thay đổi sau khi kiểm tra.`,409);
@@ -153,7 +183,7 @@ export async function exportBooks(c,template=false) {
   const wb=new ExcelJS.Workbook(); wb.creator='Thư viện sách Ngành Spa';
   const titles=wb.addWorksheet('ĐẦU SÁCH'),copies=wb.addWorksheet('SÁCH'),guide=wb.addWorksheet('HƯỚNG DẪN');
   titles.addRow(TITLE_HEADERS); copies.addRow(COPY_HEADERS);
-  guide.addRows([['schema_version',1],['Chỉ nhập hai sheet sách; không nhập độc giả, tiền hoặc phiếu.'],['CREATE: mã DS001, DS001-001; UPDATE: bắt buộc VERSION từ file xuất.'],['Cột STT, tổng số, tồn, tên đầu sách tra cứu và trạng thái cuốn là chỉ đọc.'],['Trạng thái phát hành: IN_PRINT, OUT_OF_PRINT, UNKNOWN. Nhóm đơn giá: VIETNAMESE/FOREIGN.'],['Giá bìa/số trang trống được giữ là chưa biết, không mặc định giá giả.']]);
+  guide.addRows([['schema_version',1],['Chỉ nhập hai sheet sách. Giữ VERSION khi sửa file xuất.'],['Sửa TỔNG SỐ CUỐN và CÓ SẴN cùng mức tăng/giảm. Chỉ điều chỉnh cuốn Có sẵn.'],['Mỗi đầu sách chỉ dùng một cách: chỉnh số lượng hoặc thêm mã cuốn trong sheet SÁCH.'],['ĐANG MƯỢN, ĐANG SỬA và trạng thái cuốn hiện có là chỉ đọc.'],['Trạng thái phát hành: IN_PRINT, OUT_OF_PRINT, UNKNOWN. Nhóm đơn giá: VIETNAMESE/FOREIGN.'],['Giá bìa/số trang trống được giữ là chưa biết.']]);
   if(!template) {
     const ts=await rows(c,`select t.*,g.name category,count(c.id) filter(where c.status not in ('LOST','RETIRED')) total,count(c.id) filter(where c.status='READY') available,count(c.id) filter(where c.status='ON_LOAN') borrowed,count(c.id) filter(where c.status='REPAIR') repair from library.book_titles t left join library.book_categories g on g.id=t.category_id left join library.book_copies c on c.title_id=t.id group by t.id,g.name order by t.code`);
     ts.forEach((t,i)=>titles.addRow([i+1,t.code,t.title,t.authors,t.category,t.publisher,t.language,t.acquired_on,t.cover_url,t.description,t.publication_year,t.isbn,t.cover_price_vnd,t.show_on_web?'Có':'Không',Number(t.total),Number(t.available),Number(t.borrowed),Number(t.repair),t.page_count,t.publication_status,t.compensation_language_group,t.version].map(safe)));
